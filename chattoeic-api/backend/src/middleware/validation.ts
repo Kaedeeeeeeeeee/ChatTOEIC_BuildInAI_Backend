@@ -65,7 +65,7 @@ export const schemas = {
   userRegister: Joi.object({
     email: Joi.string().email().required(),
     password: Joi.string().min(6).required(),
-    name: Joi.string().optional()
+    name: Joi.string().min(1).required()
   }),
 
   // 用户登录
