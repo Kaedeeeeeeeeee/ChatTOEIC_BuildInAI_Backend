@@ -107,6 +107,7 @@ router.post('/message',
 // 获取或创建基于题目的聊天会话
 router.post('/sessions/question-based',
   authenticateToken,
+  requireAiChatAccess,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { questionId, questionData, title } = req.body;
@@ -200,6 +201,7 @@ router.post('/sessions/question-based',
 // 创建聊天会话
 router.post('/sessions',
   authenticateToken,
+  requireAiChatAccess,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { title } = req.body;
@@ -410,10 +412,11 @@ router.put('/sessions/:sessionId/title',
   }
 );
 
-// 解释题目答案
+// 解释题目答案 (需要AI对话权限)
 router.post('/explain',
   aiRateLimit,
   authenticateToken,
+  requireAiChatAccess,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { question, userAnswer, correctAnswer } = req.body;

@@ -42,9 +42,10 @@ router.post('/generate',
   }
 );
 
-// 提交练习结果
+// 提交练习结果 (需要权限检查)
 router.post('/submit',
   authenticateToken,
+  requirePracticeAccess,
   validateRequest({ body: schemas.practiceSubmission }),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -103,7 +104,8 @@ router.post('/submit',
 // 创建新的练习会话 (兼容前端API)
 router.post('/sessions', 
   authenticateToken,
-  async (req: Request, res: Response) => {
+  requirePracticeAccess,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { sessionType, questionType, difficulty, categories, totalQuestions, timeLimit } = req.body;
       const userId = req.user!.userId;
