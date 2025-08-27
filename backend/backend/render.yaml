@@ -2,8 +2,8 @@ services:
   - type: web
     name: chattoeic-api
     runtime: node
-    buildCommand: ./build.sh
-    startCommand: npm start
+    buildCommand: npm install && npx prisma generate --schema=prisma/schema.prisma && npm run build
+    startCommand: node dist/server.js
     plan: starter
     healthCheckPath: /api/health
     envVars:
@@ -11,6 +11,3 @@ services:
         value: production
       - key: PORT
         value: 10000
-    scaling:
-      minInstances: 1
-      maxInstances: 1

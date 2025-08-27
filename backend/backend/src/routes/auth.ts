@@ -8,6 +8,7 @@ import { authRateLimit, oauthRateLimit } from '../middleware/rateLimiting.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { AuthTokens, JWTPayload } from '../types/index.js';
 import { notifyDashboardUpdate } from './dashboard-stream.js';
+import { authEmailService } from '../services/authEmailService.js';
 
 const router = Router();
 
@@ -160,12 +161,13 @@ router.post('/register', authRateLimit, validateRequest({ body: schemas.userRegi
     // 加密密码
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // 创建用户
+    // 创建用户，但设置为未验证状态
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
+        emailVerified: false, // 默认未验证
         settings: {
           preferredLanguage: 'zh',
           theme: 'light',
@@ -177,25 +179,50 @@ router.post('/register', authRateLimit, validateRequest({ body: schemas.userRegi
         email: true,
         name: true,
         role: true,
+        emailVerified: true,
         createdAt: true
       }
     });
 
-    // 生成令牌
-    const tokens = generateTokens({
-      userId: user.id,
-      email: user.email,
-      role: user.role
-    });
-
-    res.status(201).json({
-      success: true,
-      data: {
-        user,
-        ...tokens
-      },
-      message: '注册成功'
-    });
+    // 发送验证邮件
+    const emailResult = await authEmailService.sendRegistrationVerificationEmail(email, name);
+    
+    if (emailResult.success) {
+      console.log('📧 Verification email sent to:', email);
+      
+      res.status(201).json({
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            emailVerified: user.emailVerified
+          },
+          needsVerification: true
+        },
+        message: '注册成功！请查收验证邮件并完成邮箱验证'
+      });
+    } else {
+      // 如果邮件发送失败，删除已创建的用户或标记为需要重新验证
+      console.error('Failed to send verification email:', emailResult.error);
+      
+      res.status(201).json({
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            emailVerified: user.emailVerified
+          },
+          needsVerification: true,
+          emailError: true
+        },
+        message: '注册成功，但验证邮件发送失败。请稍后重新请求验证邮件',
+        warning: '验证邮件发送失败'
+      });
+    }
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({
@@ -776,6 +803,200 @@ router.get('/google/callback', oauthRateLimit, async (req: Request, res: Respons
     
     const frontendUrl = process.env.FRONTEND_URL || 'https://www.chattoeic.com';
     res.redirect(`${frontendUrl}/?error=${errorType}&details=${encodeURIComponent(error.message)}`);
+  }
+});
+
+// 邮箱验证端点
+router.post('/verify-email', authRateLimit, async (req: Request, res: Response) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        error: '邮箱和验证码不能为空'
+      });
+    }
+
+    // 验证验证码
+    const verificationResult = await authEmailService.verifyEmailCode(email, code);
+    
+    if (!verificationResult.success) {
+      let errorMessage = '验证失败';
+      
+      switch (verificationResult.error) {
+        case 'verification_code_not_found':
+          errorMessage = '验证码不存在或已过期';
+          break;
+        case 'verification_code_expired':
+          errorMessage = '验证码已过期，请重新获取';
+          break;
+        case 'invalid_verification_code':
+          errorMessage = `验证码错误${verificationResult.remainingAttempts ? `，还可尝试${verificationResult.remainingAttempts}次` : ''}`;
+          break;
+        case 'too_many_attempts':
+          errorMessage = '验证次数过多，请重新获取验证码';
+          break;
+      }
+
+      return res.status(400).json({
+        success: false,
+        error: errorMessage,
+        remainingAttempts: verificationResult.remainingAttempts
+      });
+    }
+
+    // 验证成功，更新用户邮箱验证状态
+    const user = await prisma.user.update({
+      where: { email },
+      data: { emailVerified: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        emailVerified: true,
+        createdAt: true
+      }
+    });
+
+    // 发送欢迎邮件
+    try {
+      await authEmailService.sendWelcomeEmail(email, user.name || '用户');
+    } catch (emailError) {
+      console.error('Welcome email send error:', emailError);
+      // 欢迎邮件发送失败不影响验证成功
+    }
+
+    // 生成登录令牌
+    const tokens = generateTokens({
+      userId: user.id,
+      email: user.email,
+      role: user.role
+    });
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        ...tokens
+      },
+      message: '邮箱验证成功！欢迎加入ChatTOEIC！'
+    });
+
+  } catch (error: any) {
+    console.error('Email verification error:', error);
+    
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        success: false,
+        error: '用户不存在'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: '验证失败，请稍后重试'
+    });
+  }
+});
+
+// 重新发送验证邮件
+router.post('/resend-verification', authRateLimit, async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: '邮箱地址不能为空'
+      });
+    }
+
+    // 检查用户是否存在且未验证
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        emailVerified: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: '用户不存在'
+      });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({
+        success: false,
+        error: '邮箱已经验证过了'
+      });
+    }
+
+    // 重新发送验证邮件
+    const emailResult = await authEmailService.resendVerificationEmail(email, user.name || '用户');
+
+    if (emailResult.success) {
+      res.json({
+        success: true,
+        message: '验证邮件已重新发送，请查收邮箱'
+      });
+    } else {
+      let errorMessage = '发送失败，请稍后重试';
+      
+      if (emailResult.error === 'verification_code_still_valid') {
+        errorMessage = '验证码仍然有效，请检查邮箱或稍后再试';
+      }
+
+      res.status(400).json({
+        success: false,
+        error: errorMessage
+      });
+    }
+
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.status(500).json({
+      success: false,
+      error: '发送失败，请稍后重试'
+    });
+  }
+});
+
+// 检查验证码状态
+router.get('/verification-status', authRateLimit, async (req: Request, res: Response) => {
+  try {
+    const { email } = req.query;
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: '邮箱地址不能为空'
+      });
+    }
+
+    const codeInfo = authEmailService.getVerificationCodeInfo(email);
+
+    res.json({
+      success: true,
+      data: {
+        hasActiveCode: codeInfo.exists,
+        expiresAt: codeInfo.expiresAt,
+        remainingAttempts: codeInfo.remainingAttempts
+      }
+    });
+
+  } catch (error) {
+    console.error('Verification status check error:', error);
+    res.status(500).json({
+      success: false,
+      error: '查询失败，请稍后重试'
+    });
   }
 });
 

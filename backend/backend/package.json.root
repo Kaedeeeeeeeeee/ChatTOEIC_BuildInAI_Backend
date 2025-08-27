@@ -1,0 +1,11 @@
+{
+  "name": "chattoeic-root",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd backend/backend && npm install && npx prisma generate --schema=prisma/schema.prisma && npm run build",
+    "start": "cd backend/backend && node dist/server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
