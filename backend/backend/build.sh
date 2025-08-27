@@ -22,7 +22,7 @@ npm install --production=false
 
 # Generate Prisma client
 echo "🔧 Generating Prisma client..."
-npx prisma generate
+npx prisma generate --schema=prisma/schema.prisma
 
 # Build the application
 echo "🏗️ Building application..."

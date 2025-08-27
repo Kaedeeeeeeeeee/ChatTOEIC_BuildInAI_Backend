@@ -20,7 +20,7 @@ echo "✅ Prisma schema found"
 
 # Generate Prisma client
 echo "Generating Prisma client..."
-npx prisma generate
+npx prisma generate --schema=prisma/schema.prisma
 
 if [ $? -ne 0 ]; then
     echo "Error: Failed to generate Prisma client"
