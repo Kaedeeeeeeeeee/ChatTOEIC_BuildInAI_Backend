@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: chattoeic-api
+    runtime: node
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    scaling:
+      minInstances: 1
+      maxInstances: 1
