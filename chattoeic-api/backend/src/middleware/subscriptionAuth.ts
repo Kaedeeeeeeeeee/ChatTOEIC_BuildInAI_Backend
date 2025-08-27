@@ -73,7 +73,7 @@ export async function getUserSubscriptionInfo(userId: string) {
           exportData: false,        // ❌ 不能导出
           viewMistakes: true,       // ✅ 无限复习功能
         },
-        trialAvailable: true, // 暂时默认为可用，直到数据库字段同步
+        trialAvailable: true, // 新用户可以试用
       };
     }
 
@@ -150,7 +150,7 @@ export async function getUserSubscriptionInfo(userId: string) {
             exportData: false,
             viewMistakes: true,
           },
-          trialAvailable: true,
+          trialAvailable: false, // 未知订阅状态，不允许试用
         };
       }
     }
@@ -185,9 +185,34 @@ export async function getUserSubscriptionInfo(userId: string) {
     // 获取套餐权限
     const planFeatures = planData.features as any;
     
-    // 🔧 特殊处理：如果是试用状态，直接给予试用权限
+    // 🔧 特殊处理：如果是试用状态，需要检查试用是否过期
     if (subscription.status === 'trialing') {
-      log.info('🎯 Granting trial permissions for trialing user', { userId, status: subscription.status });
+      // 检查试用是否过期
+      const now = new Date();
+      const trialExpired = subscription.trialEnd && subscription.trialEnd < now;
+      
+      if (trialExpired) {
+        log.info('🚫 Trial period expired for user', { 
+          userId, 
+          trialEnd: subscription.trialEnd,
+          now: now.toISOString()
+        });
+        return {
+          hasPermission: false,
+          subscription: { ...subscription, plan: planData },
+          reason: 'TRIAL_EXPIRED',
+          permissions: {
+            aiPractice: false,        // ❌ 试用过期无AI练习
+            aiChat: false,            // ❌ 试用过期无AI对话
+            vocabulary: true,         // ✅ 生词本功能  
+            exportData: false,        // ❌ 不能导出
+            viewMistakes: true,       // ✅ 无限复习功能
+          },
+          trialAvailable: false,
+        };
+      }
+      
+      log.info('🎯 Granting trial permissions for active trialing user', { userId, status: subscription.status });
       return {
         hasPermission: true,
         subscription: { ...subscription, plan: planData },

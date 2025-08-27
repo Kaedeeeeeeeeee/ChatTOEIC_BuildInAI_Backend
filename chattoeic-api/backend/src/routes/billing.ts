@@ -643,7 +643,7 @@ router.get('/user/subscription', authenticateToken, async (req: AuthenticatedReq
           exportData: false,        // ❌ 不能导出
           viewMistakes: true,       // ✅ 无限复习功能
         },
-        trialAvailable: true,
+        trialAvailable: false, // 查询失败时，不允许试用
       };
     }
 
