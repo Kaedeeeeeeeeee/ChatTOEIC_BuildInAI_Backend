@@ -324,7 +324,7 @@ var health_default = router;
 // src/routes/auth.ts
 init_database();
 import { Router as Router3 } from "express";
-import bcrypt from "bcryptjs";
+import bcrypt2 from "bcryptjs";
 import jwt2 from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 
@@ -1032,7 +1032,7 @@ setInterval(async () => {
 var dashboard_stream_default = router2;
 
 // src/services/authEmailService.ts
-import React7 from "react";
+import React9 from "react";
 
 // src/services/emailService.ts
 import { Resend } from "resend";
@@ -1315,6 +1315,207 @@ setInterval(() => {
   verificationService.cleanupExpiredCodes();
 }, 5 * 60 * 1e3);
 
+// src/services/passwordResetService.ts
+import crypto2 from "crypto";
+import bcrypt from "bcryptjs";
+var PasswordResetService = class {
+  tokens = /* @__PURE__ */ new Map();
+  TOKEN_EXPIRY_HOURS = 1;
+  MAX_TOKENS_PER_EMAIL = 3;
+  /**
+   * 生成安全的重置令牌
+   */
+  generateResetToken() {
+    return crypto2.randomBytes(32).toString("hex");
+  }
+  /**
+   * 创建密码重置令牌
+   */
+  async createResetToken(email, userId, userAgent, ipAddress) {
+    await this.cleanupTokensForEmail(email);
+    const existingTokens = Array.from(this.tokens.values()).filter((token2) => token2.email === email && !token2.used && /* @__PURE__ */ new Date() < token2.expiresAt);
+    if (existingTokens.length >= this.MAX_TOKENS_PER_EMAIL) {
+      throw new Error("too_many_reset_requests");
+    }
+    const token = this.generateResetToken();
+    const hashedToken = await bcrypt.hash(token, 12);
+    const resetToken = {
+      token,
+      hashedToken,
+      email,
+      userId,
+      expiresAt: new Date(Date.now() + this.TOKEN_EXPIRY_HOURS * 60 * 60 * 1e3),
+      createdAt: /* @__PURE__ */ new Date(),
+      used: false,
+      userAgent,
+      ipAddress
+    };
+    const tokenKey = token.substring(0, 16);
+    this.tokens.set(tokenKey, resetToken);
+    console.log("\u{1F510} Password reset token created:", {
+      tokenKey,
+      email,
+      userId,
+      expiresAt: resetToken.expiresAt
+    });
+    return token;
+  }
+  /**
+   * 验证重置令牌
+   */
+  async verifyResetToken(token) {
+    try {
+      if (!token || token.length !== 64) {
+        return {
+          success: false,
+          error: "invalid_token_format"
+        };
+      }
+      const tokenKey = token.substring(0, 16);
+      const storedToken = this.tokens.get(tokenKey);
+      if (!storedToken) {
+        return {
+          success: false,
+          error: "token_not_found"
+        };
+      }
+      if (/* @__PURE__ */ new Date() > storedToken.expiresAt) {
+        this.tokens.delete(tokenKey);
+        return {
+          success: false,
+          error: "token_expired"
+        };
+      }
+      if (storedToken.used) {
+        return {
+          success: false,
+          error: "token_already_used"
+        };
+      }
+      const isValid = await bcrypt.compare(token, storedToken.hashedToken);
+      if (!isValid) {
+        return {
+          success: false,
+          error: "invalid_token"
+        };
+      }
+      console.log("\u2705 Password reset token verified:", {
+        tokenKey,
+        email: storedToken.email,
+        userId: storedToken.userId
+      });
+      return {
+        success: true,
+        email: storedToken.email,
+        userId: storedToken.userId
+      };
+    } catch (error) {
+      console.error("\u274C Password reset token verification error:", error);
+      return {
+        success: false,
+        error: "verification_error"
+      };
+    }
+  }
+  /**
+   * 标记令牌为已使用
+   */
+  async markTokenAsUsed(token) {
+    try {
+      const tokenKey = token.substring(0, 16);
+      const storedToken = this.tokens.get(tokenKey);
+      if (!storedToken) {
+        return false;
+      }
+      storedToken.used = true;
+      console.log("\u{1F512} Password reset token marked as used:", {
+        tokenKey,
+        email: storedToken.email
+      });
+      return true;
+    } catch (error) {
+      console.error("\u274C Error marking token as used:", error);
+      return false;
+    }
+  }
+  /**
+   * 清理指定邮箱的所有令牌
+   */
+  async cleanupTokensForEmail(email) {
+    let cleanedCount = 0;
+    for (const [key, token] of this.tokens.entries()) {
+      if (token.email === email) {
+        this.tokens.delete(key);
+        cleanedCount++;
+      }
+    }
+    if (cleanedCount > 0) {
+      console.log(`\u{1F9F9} Cleaned up ${cleanedCount} reset tokens for email: ${email}`);
+    }
+    return cleanedCount;
+  }
+  /**
+   * 清理过期的重置令牌
+   */
+  async cleanupExpiredTokens() {
+    const now = /* @__PURE__ */ new Date();
+    let cleanedCount = 0;
+    for (const [key, token] of this.tokens.entries()) {
+      if (now > token.expiresAt || token.used) {
+        this.tokens.delete(key);
+        cleanedCount++;
+      }
+    }
+    if (cleanedCount > 0) {
+      console.log(`\u{1F9F9} Cleaned up ${cleanedCount} expired/used reset tokens`);
+    }
+    return cleanedCount;
+  }
+  /**
+   * 获取令牌统计信息
+   */
+  getTokenStats() {
+    const now = /* @__PURE__ */ new Date();
+    let active = 0;
+    let expired = 0;
+    let used = 0;
+    for (const token of this.tokens.values()) {
+      if (token.used) {
+        used++;
+      } else if (now > token.expiresAt) {
+        expired++;
+      } else {
+        active++;
+      }
+    }
+    return {
+      total: this.tokens.size,
+      active,
+      expired,
+      used
+    };
+  }
+  /**
+   * 检查邮箱是否有活跃的重置请求
+   */
+  hasActiveResetRequest(email) {
+    const now = /* @__PURE__ */ new Date();
+    const activeTokens = Array.from(this.tokens.values()).filter(
+      (token) => token.email === email && !token.used && now < token.expiresAt
+    );
+    const earliestExpiry = activeTokens.length > 0 ? new Date(Math.min(...activeTokens.map((t) => t.expiresAt.getTime()))) : void 0;
+    return {
+      hasActive: activeTokens.length > 0,
+      count: activeTokens.length,
+      earliestExpiry
+    };
+  }
+};
+var passwordResetService = new PasswordResetService();
+setInterval(() => {
+  passwordResetService.cleanupExpiredTokens();
+}, 10 * 60 * 1e3);
+
 // src/emails/templates/auth/VerificationEmail.tsx
 import React6 from "react";
 import { Text as Text4, Section as Section5 } from "@react-email/components";
@@ -1397,6 +1598,31 @@ function VerificationEmail({
   return /* @__PURE__ */ React6.createElement(Layout, { preview: `\u9A8C\u8BC1\u60A8\u7684ChatTOEIC\u8D26\u53F7 - \u9A8C\u8BC1\u7801\uFF1A${verificationCode}` }, /* @__PURE__ */ React6.createElement(Section5, null, /* @__PURE__ */ React6.createElement(Text4, { className: "text-2xl font-bold text-gray-800 mb-4 m-0" }, "\u{1F389} \u6B22\u8FCE\u52A0\u5165ChatTOEIC\uFF01"), /* @__PURE__ */ React6.createElement(Text4, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u4EB2\u7231\u7684 ", /* @__PURE__ */ React6.createElement("span", { className: "font-semibold text-blue-600" }, userName), "\uFF0C"), /* @__PURE__ */ React6.createElement(Text4, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u611F\u8C22\u60A8\u6CE8\u518CChatTOEIC\uFF01\u4E3A\u4E86\u786E\u4FDD\u60A8\u7684\u8D26\u6237\u5B89\u5168\uFF0C\u8BF7\u4F7F\u7528\u4EE5\u4E0B\u9A8C\u8BC1\u7801\u5B8C\u6210\u90AE\u7BB1\u9A8C\u8BC1\uFF1A"), /* @__PURE__ */ React6.createElement(VerificationCode, { code: verificationCode, expiresInMinutes: 10 }), /* @__PURE__ */ React6.createElement(Text4, { className: "text-gray-700 text-base leading-6 mb-6 m-0" }, "\u60A8\u4E5F\u53EF\u4EE5\u70B9\u51FB\u4E0B\u65B9\u6309\u94AE\u76F4\u63A5\u5B8C\u6210\u9A8C\u8BC1\uFF1A"), /* @__PURE__ */ React6.createElement(Section5, { className: "text-center mb-6" }, /* @__PURE__ */ React6.createElement(Button, { href: verificationUrl }, "\u7ACB\u5373\u9A8C\u8BC1\u8D26\u53F7")), /* @__PURE__ */ React6.createElement(Section5, { className: "bg-blue-50 border-l-4 border-blue-400 p-4 rounded" }, /* @__PURE__ */ React6.createElement(Text4, { className: "text-blue-800 text-sm m-0" }, /* @__PURE__ */ React6.createElement("strong", null, "\u6E29\u99A8\u63D0\u793A\uFF1A"), "\u9A8C\u8BC1\u5B8C\u6210\u540E\uFF0C\u60A8\u5C06\u53EF\u4EE5\uFF1A"), /* @__PURE__ */ React6.createElement(Text4, { className: "text-blue-700 text-sm mt-2 mb-1 ml-4 m-0" }, "\u2022 \u{1F9E0} \u4EAB\u53D7AI\u9A71\u52A8\u7684\u4E2A\u6027\u5316TOEIC\u7EC3\u4E60"), /* @__PURE__ */ React6.createElement(Text4, { className: "text-blue-700 text-sm my-1 ml-4 m-0" }, "\u2022 \u{1F4CA} \u83B7\u5F97\u8BE6\u7EC6\u7684\u5B66\u4E60\u5206\u6790\u548C\u8FDB\u6B65\u62A5\u544A"), /* @__PURE__ */ React6.createElement(Text4, { className: "text-blue-700 text-sm my-1 ml-4 m-0" }, "\u2022 \u{1F4DA} \u6784\u5EFA\u4E13\u5C5E\u7684\u667A\u80FD\u8BCD\u6C47\u5E93"), /* @__PURE__ */ React6.createElement(Text4, { className: "text-blue-700 text-sm mt-1 ml-4 m-0" }, "\u2022 \u{1F3AF} \u5236\u5B9A\u79D1\u5B66\u7684\u5B66\u4E60\u8BA1\u5212")), /* @__PURE__ */ React6.createElement(Text4, { className: "text-gray-600 text-sm mt-6 m-0" }, "\u5982\u679C\u60A8\u6CA1\u6709\u6CE8\u518CChatTOEIC\u8D26\u53F7\uFF0C\u8BF7\u5FFD\u7565\u6B64\u90AE\u4EF6\u3002")));
 }
 
+// src/emails/templates/auth/PasswordResetEmail.tsx
+import React7 from "react";
+import { Text as Text5, Section as Section6 } from "@react-email/components";
+function PasswordResetEmail({
+  userName,
+  resetToken,
+  resetUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}/reset-password?token=${resetToken}`,
+  expiresInHours = 1
+}) {
+  return /* @__PURE__ */ React7.createElement(Layout, { preview: `\u91CD\u7F6E\u60A8\u7684ChatTOEIC\u5BC6\u7801 - ${userName}` }, /* @__PURE__ */ React7.createElement(Section6, null, /* @__PURE__ */ React7.createElement(Text5, { className: "text-2xl font-bold text-gray-800 mb-4 m-0" }, "\u{1F510} \u91CD\u7F6E\u60A8\u7684\u5BC6\u7801"), /* @__PURE__ */ React7.createElement(Text5, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u4EB2\u7231\u7684 ", /* @__PURE__ */ React7.createElement("span", { className: "font-semibold text-blue-600" }, userName), "\uFF0C"), /* @__PURE__ */ React7.createElement(Text5, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u6211\u4EEC\u6536\u5230\u4E86\u60A8\u91CD\u7F6EChatTOEIC\u8D26\u53F7\u5BC6\u7801\u7684\u8BF7\u6C42\u3002\u8BF7\u70B9\u51FB\u4E0B\u65B9\u6309\u94AE\u6765\u8BBE\u7F6E\u65B0\u5BC6\u7801\uFF1A"), /* @__PURE__ */ React7.createElement(Section6, { className: "text-center my-8" }, /* @__PURE__ */ React7.createElement(Button, { href: resetUrl }, "\u91CD\u7F6E\u5BC6\u7801")), /* @__PURE__ */ React7.createElement(Text5, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u5982\u679C\u6309\u94AE\u65E0\u6CD5\u70B9\u51FB\uFF0C\u8BF7\u590D\u5236\u4EE5\u4E0B\u94FE\u63A5\u5230\u6D4F\u89C8\u5668\u5730\u5740\u680F\uFF1A"), /* @__PURE__ */ React7.createElement(Section6, { className: "bg-gray-100 border border-gray-200 rounded p-3 mb-6" }, /* @__PURE__ */ React7.createElement(Text5, { className: "text-sm text-gray-600 break-all m-0 font-mono" }, resetUrl)), /* @__PURE__ */ React7.createElement(Section6, { className: "bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded mb-6" }, /* @__PURE__ */ React7.createElement(Text5, { className: "text-yellow-800 text-sm font-semibold m-0" }, "\u26A0\uFE0F \u91CD\u8981\u5B89\u5168\u63D0\u9192\uFF1A"), /* @__PURE__ */ React7.createElement(Text5, { className: "text-yellow-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u6B64\u91CD\u7F6E\u94FE\u63A5\u5C06\u5728 ", expiresInHours, " \u5C0F\u65F6\u540E\u5931\u6548"), /* @__PURE__ */ React7.createElement(Text5, { className: "text-yellow-700 text-sm my-1 m-0" }, "\u2022 \u4F7F\u7528\u540E\u94FE\u63A5\u5C06\u7ACB\u5373\u5931\u6548"), /* @__PURE__ */ React7.createElement(Text5, { className: "text-yellow-700 text-sm my-1 m-0" }, "\u2022 \u8BF7\u4E0D\u8981\u5C06\u6B64\u94FE\u63A5\u5206\u4EAB\u7ED9\u4ED6\u4EBA"), /* @__PURE__ */ React7.createElement(Text5, { className: "text-yellow-700 text-sm mt-1 m-0" }, "\u2022 \u5982\u679C\u4E0D\u662F\u60A8\u672C\u4EBA\u64CD\u4F5C\uFF0C\u8BF7\u7ACB\u5373\u8054\u7CFB\u6211\u4EEC")), /* @__PURE__ */ React7.createElement(Section6, { className: "bg-blue-50 border border-blue-200 rounded p-4 mb-6" }, /* @__PURE__ */ React7.createElement(Text5, { className: "text-blue-800 text-sm font-semibold m-0" }, "\u{1F4A1} \u5BC6\u7801\u5B89\u5168\u5EFA\u8BAE\uFF1A"), /* @__PURE__ */ React7.createElement(Text5, { className: "text-blue-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u4F7F\u7528\u81F3\u5C118\u4F4D\u5B57\u7B26\uFF0C\u5305\u542B\u5B57\u6BCD\u3001\u6570\u5B57\u548C\u7279\u6B8A\u7B26\u53F7"), /* @__PURE__ */ React7.createElement(Text5, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u4E0D\u8981\u4F7F\u7528\u4E0E\u5176\u4ED6\u7F51\u7AD9\u76F8\u540C\u7684\u5BC6\u7801"), /* @__PURE__ */ React7.createElement(Text5, { className: "text-blue-700 text-sm mt-1 m-0" }, "\u2022 \u5B9A\u671F\u66F4\u6362\u5BC6\u7801\uFF0C\u4FDD\u62A4\u8D26\u6237\u5B89\u5168")), /* @__PURE__ */ React7.createElement(Text5, { className: "text-gray-600 text-sm mt-6 m-0" }, "\u5982\u679C\u60A8\u6CA1\u6709\u7533\u8BF7\u5BC6\u7801\u91CD\u7F6E\uFF0C\u8BF7\u5FFD\u7565\u6B64\u90AE\u4EF6\u3002\u60A8\u7684\u5BC6\u7801\u4E0D\u4F1A\u88AB\u66F4\u6539\u3002"), /* @__PURE__ */ React7.createElement(Text5, { className: "text-gray-600 text-sm mt-4 m-0" }, "\u6709\u4EFB\u4F55\u95EE\u9898\uFF0C\u8BF7\u8054\u7CFB\u6211\u4EEC\uFF1A", /* @__PURE__ */ React7.createElement("a", { href: "mailto:support@chattoeic.com", className: "text-blue-600 underline ml-1" }, "support@chattoeic.com"))));
+}
+
+// src/emails/templates/auth/PasswordResetSuccessEmail.tsx
+import React8 from "react";
+import { Text as Text6, Section as Section7 } from "@react-email/components";
+function PasswordResetSuccessEmail({
+  userName,
+  resetTime,
+  loginUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}/login`,
+  userAgent,
+  ipAddress
+}) {
+  return /* @__PURE__ */ React8.createElement(Layout, { preview: `\u5BC6\u7801\u91CD\u7F6E\u6210\u529F - ${userName}` }, /* @__PURE__ */ React8.createElement(Section7, null, /* @__PURE__ */ React8.createElement(Text6, { className: "text-2xl font-bold text-green-600 mb-4 m-0" }, "\u2705 \u5BC6\u7801\u91CD\u7F6E\u6210\u529F"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u4EB2\u7231\u7684 ", /* @__PURE__ */ React8.createElement("span", { className: "font-semibold text-blue-600" }, userName), "\uFF0C"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u60A8\u7684ChatTOEIC\u8D26\u53F7\u5BC6\u7801\u5DF2\u6210\u529F\u91CD\u7F6E\u3002\u73B0\u5728\u60A8\u53EF\u4EE5\u4F7F\u7528\u65B0\u5BC6\u7801\u767B\u5F55\u8D26\u6237\u4E86\u3002"), /* @__PURE__ */ React8.createElement(Section7, { className: "bg-green-50 border border-green-200 rounded p-4 mb-6" }, /* @__PURE__ */ React8.createElement(Text6, { className: "text-green-800 text-sm font-semibold m-0" }, "\u{1F389} \u91CD\u7F6E\u8BE6\u60C5\uFF1A"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-green-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u91CD\u7F6E\u65F6\u95F4\uFF1A", resetTime), ipAddress && /* @__PURE__ */ React8.createElement(Text6, { className: "text-green-700 text-sm my-1 m-0" }, "\u2022 \u64CD\u4F5CIP\uFF1A", ipAddress), userAgent && /* @__PURE__ */ React8.createElement(Text6, { className: "text-green-700 text-sm mt-1 m-0" }, "\u2022 \u8BBE\u5907\u4FE1\u606F\uFF1A", userAgent)), /* @__PURE__ */ React8.createElement(Section7, { className: "text-center my-8" }, /* @__PURE__ */ React8.createElement(Button, { href: loginUrl }, "\u7ACB\u5373\u767B\u5F55")), /* @__PURE__ */ React8.createElement(Section7, { className: "bg-blue-50 border-l-4 border-blue-400 p-4 rounded mb-6" }, /* @__PURE__ */ React8.createElement(Text6, { className: "text-blue-800 text-sm font-semibold m-0" }, "\u{1F510} \u8D26\u6237\u5B89\u5168\u63D0\u9192\uFF1A"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-blue-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u8BF7\u59A5\u5584\u4FDD\u7BA1\u60A8\u7684\u65B0\u5BC6\u7801"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u4E0D\u8981\u4E0E\u4ED6\u4EBA\u5206\u4EAB\u767B\u5F55\u4FE1\u606F"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u5B9A\u671F\u68C0\u67E5\u8D26\u6237\u6D3B\u52A8\u8BB0\u5F55"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-blue-700 text-sm mt-1 m-0" }, "\u2022 \u5982\u53D1\u73B0\u5F02\u5E38\u6D3B\u52A8\uFF0C\u8BF7\u7ACB\u5373\u8054\u7CFB\u6211\u4EEC")), /* @__PURE__ */ React8.createElement(Section7, { className: "bg-red-50 border border-red-200 rounded p-4 mb-6" }, /* @__PURE__ */ React8.createElement(Text6, { className: "text-red-800 text-sm font-semibold m-0" }, "\u26A0\uFE0F \u5982\u679C\u4E0D\u662F\u60A8\u672C\u4EBA\u64CD\u4F5C\uFF1A"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-red-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u8BF7\u7ACB\u5373\u8054\u7CFB\u6211\u4EEC\uFF1Asupport@chattoeic.com"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-red-700 text-sm my-1 m-0" }, "\u2022 \u6211\u4EEC\u5C06\u534F\u52A9\u60A8\u4FDD\u62A4\u8D26\u6237\u5B89\u5168"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-red-700 text-sm mt-1 m-0" }, "\u2022 \u5EFA\u8BAE\u542F\u7528\u53CC\u91CD\u9A8C\u8BC1\u4FDD\u62A4")), /* @__PURE__ */ React8.createElement(Text6, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u611F\u8C22\u60A8\u7EE7\u7EED\u4F7F\u7528ChatTOEIC\uFF01\u795D\u60A8\u5B66\u4E60\u6109\u5FEB\uFF01"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-gray-600 text-sm mt-6 m-0" }, "\u6709\u4EFB\u4F55\u95EE\u9898\uFF0C\u8BF7\u968F\u65F6\u8054\u7CFB\u6211\u4EEC\uFF1A", /* @__PURE__ */ React8.createElement("a", { href: "mailto:support@chattoeic.com", className: "text-blue-600 underline ml-1" }, "support@chattoeic.com"))));
+}
+
 // src/services/authEmailService.ts
 var AuthEmailService = class {
   /**
@@ -1416,7 +1642,7 @@ var AuthEmailService = class {
         expiresInMinutes: 10
       });
       const verificationUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}/verify?code=${verificationCode}&email=${encodeURIComponent(email)}`;
-      const emailTemplate = React7.createElement(VerificationEmail, {
+      const emailTemplate = React9.createElement(VerificationEmail, {
         userName,
         verificationCode,
         verificationUrl
@@ -1532,7 +1758,7 @@ var AuthEmailService = class {
       const result = await emailService.sendEmail({
         to: email,
         subject: "\u{1F389} \u6B22\u8FCE\u6765\u5230ChatTOEIC\uFF01",
-        template: React7.createElement("div", {
+        template: React9.createElement("div", {
           dangerouslySetInnerHTML: { __html: html }
         })
       });
@@ -1558,6 +1784,152 @@ var AuthEmailService = class {
       email
     });
   }
+  /**
+   * 发送密码重置邮件
+   */
+  async sendPasswordResetEmail(email, userName, userId, userAgent, ipAddress) {
+    try {
+      if (!emailService.validateEmail(email)) {
+        return {
+          success: false,
+          error: "invalid_email_format"
+        };
+      }
+      const activeRequest = passwordResetService.hasActiveResetRequest(email);
+      if (activeRequest.hasActive && activeRequest.count >= 3) {
+        return {
+          success: false,
+          error: "too_many_reset_requests"
+        };
+      }
+      const resetToken = await passwordResetService.createResetToken(
+        email,
+        userId,
+        userAgent,
+        ipAddress
+      );
+      const resetUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+      const emailTemplate = React9.createElement(PasswordResetEmail, {
+        userName,
+        resetToken,
+        resetUrl,
+        expiresInHours: 1
+      });
+      const result = await emailService.sendEmail({
+        to: email,
+        subject: "\u91CD\u7F6E\u60A8\u7684ChatTOEIC\u5BC6\u7801",
+        template: emailTemplate
+      });
+      if (result.success) {
+        console.log("\u{1F510} Password reset email sent:", {
+          email,
+          userName,
+          resetToken: resetToken.substring(0, 8) + "...",
+          // 只记录前8位
+          emailId: result.id,
+          userAgent
+        });
+        return {
+          success: true,
+          emailId: result.id
+        };
+      } else {
+        await passwordResetService.cleanupTokensForEmail(email);
+        return {
+          success: false,
+          error: result.error || "email_send_failed"
+        };
+      }
+    } catch (error) {
+      console.error("\u274C Failed to send password reset email:", error);
+      if (error.message === "too_many_reset_requests") {
+        return {
+          success: false,
+          error: "too_many_reset_requests"
+        };
+      }
+      return {
+        success: false,
+        error: error.message || "unknown_error"
+      };
+    }
+  }
+  /**
+   * 验证密码重置令牌
+   */
+  async verifyPasswordResetToken(token) {
+    try {
+      const result = await passwordResetService.verifyResetToken(token);
+      if (result.success) {
+        console.log("\u2705 Password reset token verified for:", result.email);
+      }
+      return result;
+    } catch (error) {
+      console.error("\u274C Password reset token verification error:", error);
+      return {
+        success: false,
+        error: "verification_error"
+      };
+    }
+  }
+  /**
+   * 完成密码重置后发送确认邮件
+   */
+  async sendPasswordResetSuccessEmail(token, email, userName, userAgent, ipAddress) {
+    try {
+      const resetTime = (/* @__PURE__ */ new Date()).toLocaleString("zh-CN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Shanghai"
+      });
+      await passwordResetService.markTokenAsUsed(token);
+      const emailTemplate = React9.createElement(PasswordResetSuccessEmail, {
+        userName,
+        resetTime,
+        userAgent,
+        ipAddress
+      });
+      const result = await emailService.sendEmail({
+        to: email,
+        subject: "\u5BC6\u7801\u91CD\u7F6E\u6210\u529F - ChatTOEIC",
+        template: emailTemplate
+      });
+      if (result.success) {
+        console.log("\u2705 Password reset success email sent:", {
+          email,
+          userName,
+          resetTime,
+          emailId: result.id
+        });
+      }
+      return {
+        success: result.success,
+        emailId: result.id,
+        error: result.error
+      };
+    } catch (error) {
+      console.error("\u274C Failed to send password reset success email:", error);
+      return {
+        success: false,
+        error: error.message || "unknown_error"
+      };
+    }
+  }
+  /**
+   * 检查密码重置请求是否存在
+   */
+  checkPasswordResetRequest(email) {
+    return passwordResetService.hasActiveResetRequest(email);
+  }
+  /**
+   * 获取重置令牌统计信息
+   */
+  getResetTokenStats() {
+    return passwordResetService.getTokenStats();
+  }
 };
 var authEmailService = new AuthEmailService();
 
@@ -1573,7 +1945,7 @@ router3.get("/test", (req, res) => {
 router3.post("/debug/reset-admin-password", async (req, res) => {
   try {
     const newPassword = "admin123";
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const hashedPassword = await bcrypt2.hash(newPassword, 12);
     const updatedUser = await prisma.user.update({
       where: { email: "admin@chattoeic.com" },
       data: { password: hashedPassword },
@@ -1617,7 +1989,7 @@ router3.post("/debug/password-test", async (req, res) => {
         error: "Admin user not found or no password"
       });
     }
-    const validPassword = await bcrypt.compare(password, adminUser.password);
+    const validPassword = await bcrypt2.compare(password, adminUser.password);
     res.json({
       success: true,
       data: {
@@ -1689,7 +2061,7 @@ router3.post("/register", authRateLimit, validateRequest({ body: schemas.userReg
         error: "\u8BE5\u90AE\u7BB1\u5DF2\u88AB\u6CE8\u518C"
       });
     }
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await bcrypt2.hash(password, 12);
     const user = await prisma.user.create({
       data: {
         email,
@@ -1773,7 +2145,7 @@ router3.post("/login", authRateLimit, validateRequest({ body: schemas.userLogin 
         error: "\u90AE\u7BB1\u6216\u5BC6\u7801\u9519\u8BEF"
       });
     }
-    const validPassword = await bcrypt.compare(password, user.password);
+    const validPassword = await bcrypt2.compare(password, user.password);
     console.log("Password validation:", validPassword);
     if (!validPassword) {
       return res.status(401).json({
@@ -2380,6 +2752,233 @@ router3.get("/verification-status", authRateLimit, async (req, res) => {
     });
   } catch (error) {
     console.error("Verification status check error:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u67E5\u8BE2\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5"
+    });
+  }
+});
+router3.post("/request-password-reset", authRateLimit, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: "\u90AE\u7BB1\u5730\u5740\u4E0D\u80FD\u4E3A\u7A7A"
+      });
+    }
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        emailVerified: true
+      }
+    });
+    if (!user) {
+      await new Promise((resolve) => setTimeout(resolve, 1e3));
+      return res.json({
+        success: true,
+        message: "\u5982\u679C\u8BE5\u90AE\u7BB1\u5DF2\u6CE8\u518C\uFF0C\u91CD\u7F6E\u94FE\u63A5\u5DF2\u53D1\u9001"
+      });
+    }
+    if (!user.emailVerified) {
+      return res.status(400).json({
+        success: false,
+        error: "\u8BF7\u5148\u9A8C\u8BC1\u60A8\u7684\u90AE\u7BB1\u5730\u5740"
+      });
+    }
+    const userAgent = req.get("User-Agent");
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const resetStatus = authEmailService.checkPasswordResetRequest(email);
+    if (resetStatus.hasActive && resetStatus.count >= 3) {
+      return res.status(429).json({
+        success: false,
+        error: "\u91CD\u7F6E\u8BF7\u6C42\u8FC7\u4E8E\u9891\u7E41\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5"
+      });
+    }
+    const emailResult = await authEmailService.sendPasswordResetEmail(
+      email,
+      user.name || "\u7528\u6237",
+      user.id,
+      userAgent,
+      ipAddress
+    );
+    if (emailResult.success) {
+      res.json({
+        success: true,
+        message: "\u91CD\u7F6E\u94FE\u63A5\u5DF2\u53D1\u9001\u5230\u60A8\u7684\u90AE\u7BB1"
+      });
+    } else {
+      let errorMessage = "\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5";
+      if (emailResult.error === "too_many_reset_requests") {
+        errorMessage = "\u91CD\u7F6E\u8BF7\u6C42\u8FC7\u4E8E\u9891\u7E41\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5";
+      }
+      res.status(400).json({
+        success: false,
+        error: errorMessage
+      });
+    }
+  } catch (error) {
+    console.error("Password reset request error:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u670D\u52A1\u5668\u9519\u8BEF\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5"
+    });
+  }
+});
+router3.post("/verify-reset-token", authRateLimit, async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        error: "\u91CD\u7F6E\u4EE4\u724C\u4E0D\u80FD\u4E3A\u7A7A"
+      });
+    }
+    const verificationResult = await authEmailService.verifyPasswordResetToken(token);
+    if (verificationResult.success) {
+      const user = await prisma.user.findUnique({
+        where: { email: verificationResult.email },
+        select: {
+          id: true,
+          email: true,
+          name: true
+        }
+      });
+      res.json({
+        success: true,
+        data: {
+          email: verificationResult.email,
+          userName: user?.name || "\u7528\u6237"
+        }
+      });
+    } else {
+      let errorMessage = "\u91CD\u7F6E\u94FE\u63A5\u65E0\u6548\u6216\u5DF2\u8FC7\u671F";
+      switch (verificationResult.error) {
+        case "token_not_found":
+        case "token_expired":
+          errorMessage = "\u91CD\u7F6E\u94FE\u63A5\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u91CD\u65B0\u7533\u8BF7";
+          break;
+        case "token_already_used":
+          errorMessage = "\u6B64\u91CD\u7F6E\u94FE\u63A5\u5DF2\u88AB\u4F7F\u7528";
+          break;
+        case "invalid_token":
+        case "invalid_token_format":
+          errorMessage = "\u91CD\u7F6E\u94FE\u63A5\u65E0\u6548";
+          break;
+      }
+      res.status(400).json({
+        success: false,
+        error: errorMessage
+      });
+    }
+  } catch (error) {
+    console.error("Reset token verification error:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u9A8C\u8BC1\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5"
+    });
+  }
+});
+router3.post("/reset-password", authRateLimit, async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: "\u91CD\u7F6E\u4EE4\u724C\u548C\u65B0\u5BC6\u7801\u4E0D\u80FD\u4E3A\u7A7A"
+      });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: "\u5BC6\u7801\u81F3\u5C11\u9700\u89818\u4F4D\u5B57\u7B26"
+      });
+    }
+    const verificationResult = await authEmailService.verifyPasswordResetToken(token);
+    if (!verificationResult.success) {
+      let errorMessage = "\u91CD\u7F6E\u94FE\u63A5\u65E0\u6548\u6216\u5DF2\u8FC7\u671F";
+      switch (verificationResult.error) {
+        case "token_not_found":
+        case "token_expired":
+          errorMessage = "\u91CD\u7F6E\u94FE\u63A5\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u91CD\u65B0\u7533\u8BF7";
+          break;
+        case "token_already_used":
+          errorMessage = "\u6B64\u91CD\u7F6E\u94FE\u63A5\u5DF2\u88AB\u4F7F\u7528";
+          break;
+        case "invalid_token":
+        case "invalid_token_format":
+          errorMessage = "\u91CD\u7F6E\u94FE\u63A5\u65E0\u6548";
+          break;
+      }
+      return res.status(400).json({
+        success: false,
+        error: errorMessage
+      });
+    }
+    const hashedPassword = await bcrypt2.hash(newPassword, 12);
+    const updatedUser = await prisma.user.update({
+      where: { email: verificationResult.email },
+      data: { password: hashedPassword },
+      select: {
+        id: true,
+        email: true,
+        name: true
+      }
+    });
+    const userAgent = req.get("User-Agent");
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    try {
+      await authEmailService.sendPasswordResetSuccessEmail(
+        token,
+        updatedUser.email,
+        updatedUser.name || "\u7528\u6237",
+        userAgent,
+        ipAddress
+      );
+    } catch (emailError) {
+      console.error("Password reset success email error:", emailError);
+    }
+    res.json({
+      success: true,
+      message: "\u5BC6\u7801\u91CD\u7F6E\u6210\u529F\uFF01\u60A8\u73B0\u5728\u53EF\u4EE5\u4F7F\u7528\u65B0\u5BC6\u7801\u767B\u5F55\u4E86"
+    });
+  } catch (error) {
+    console.error("Password reset error:", error);
+    if (error.code === "P2025") {
+      return res.status(404).json({
+        success: false,
+        error: "\u7528\u6237\u4E0D\u5B58\u5728"
+      });
+    }
+    res.status(500).json({
+      success: false,
+      error: "\u5BC6\u7801\u91CD\u7F6E\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5"
+    });
+  }
+});
+router3.get("/password-reset-status", authRateLimit, async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({
+        success: false,
+        error: "\u90AE\u7BB1\u5730\u5740\u4E0D\u80FD\u4E3A\u7A7A"
+      });
+    }
+    const resetStatus = authEmailService.checkPasswordResetRequest(email);
+    res.json({
+      success: true,
+      data: {
+        hasActiveRequest: resetStatus.hasActive,
+        activeRequestCount: resetStatus.count,
+        earliestExpiry: resetStatus.earliestExpiry
+      }
+    });
+  } catch (error) {
+    console.error("Password reset status check error:", error);
     res.status(500).json({
       success: false,
       error: "\u67E5\u8BE2\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5"
@@ -9306,7 +9905,7 @@ var emergency_fix_default = router13;
 // src/routes/admin.ts
 init_database();
 import { Router as Router14 } from "express";
-import bcrypt2 from "bcryptjs";
+import bcrypt3 from "bcryptjs";
 async function verifyAdminPermission(req) {
   if (req.user?.userId === "be2d0b23-b625-47ab-b406-db5778c58471") {
     return {
@@ -9368,7 +9967,7 @@ router14.post("/create-first-admin", async (req, res) => {
         error: "\u8BE5\u90AE\u7BB1\u5DF2\u88AB\u6CE8\u518C"
       });
     }
-    const hashedPassword = await bcrypt2.hash(password, 12);
+    const hashedPassword = await bcrypt3.hash(password, 12);
     const adminUser = await prisma.user.create({
       data: {
         email,

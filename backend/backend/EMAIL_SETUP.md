@@ -36,14 +36,24 @@ FRONTEND_URL=https://www.chattoeic.com
    - `POST /api/auth/resend-verification` - 重发验证邮件
    - `GET /api/auth/verification-status` - 查询验证状态
 
-3. **邮件模板组件**
+3. **密码重置系统** ✨ 新增
+   - 安全的重置令牌生成和管理
+   - 1小时有效期，防暴力破解保护
+   - 专业的重置邮件和成功确认邮件
+
+4. **密码重置API**
+   - `POST /api/auth/request-password-reset` - 申请密码重置
+   - `POST /api/auth/verify-reset-token` - 验证重置令牌
+   - `POST /api/auth/reset-password` - 重置密码
+   - `GET /api/auth/password-reset-status` - 查询重置状态
+
+5. **邮件模板组件**
    - React Email 组件化模板
    - Tailwind CSS 样式
    - 响应式设计
 
 ### 🔄 开发中功能
 
-- 密码重置邮件
 - 邮箱变更确认邮件
 - 系统通知邮件
 - 功能推送邮件
@@ -87,6 +97,32 @@ POST /api/auth/resend-verification
 GET /api/auth/verification-status?email=user@example.com
 ```
 
+### 密码重置相关 ✨ 新增
+
+```typescript
+// 申请密码重置
+POST /api/auth/request-password-reset
+{
+  "email": "user@example.com"
+}
+
+// 验证重置令牌
+POST /api/auth/verify-reset-token
+{
+  "token": "64位hex字符串"
+}
+
+// 重置密码
+POST /api/auth/reset-password
+{
+  "token": "64位hex字符串",
+  "newPassword": "newPassword123"
+}
+
+// 查询重置状态
+GET /api/auth/password-reset-status?email=user@example.com
+```
+
 ## 邮件模板
 
 ### 注册验证邮件
@@ -98,6 +134,26 @@ GET /api/auth/verification-status?email=user@example.com
   - 一键验证按钮
   - 功能介绍
   - 安全提示
+
+### 密码重置邮件 ✨ 新增
+
+- **模板位置**: `src/emails/templates/auth/PasswordResetEmail.tsx`
+- **包含内容**:
+  - 个性化问候语
+  - 安全的重置链接
+  - 1小时有效期提示
+  - 安全警告和建议
+  - 密码安全最佳实践
+
+### 密码重置成功邮件 ✨ 新增
+
+- **模板位置**: `src/emails/templates/auth/PasswordResetSuccessEmail.tsx`
+- **包含内容**:
+  - 重置确认信息
+  - 操作时间和设备信息
+  - 安全提醒
+  - 快速登录链接
+  - 可疑活动报告指引
 
 ### 基础组件
 
