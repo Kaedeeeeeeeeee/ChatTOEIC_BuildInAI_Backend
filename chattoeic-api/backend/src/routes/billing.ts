@@ -978,7 +978,7 @@ router.delete('/debug-reset/:userId', async (req: Request, res: Response) => {
 router.post('/create-checkout-session', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.userId;
-    const { planId, returnUrl, cancelUrl } = req.body;
+    const { planId, returnUrl, cancelUrl, paymentMethods } = req.body;
 
     if (!planId) {
       return res.status(400).json({
@@ -995,6 +995,7 @@ router.post('/create-checkout-session', authenticateToken, async (req: Authentic
       planId,
       successUrl,
       cancelUrl: cancelUrl_final,
+      paymentMethods: paymentMethods || ['card', 'alipay'], // 默认支持卡片和支付宝
     });
 
     res.json({

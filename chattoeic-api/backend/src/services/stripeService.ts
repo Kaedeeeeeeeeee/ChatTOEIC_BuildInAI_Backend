@@ -58,11 +58,13 @@ export class StripeService {
     planId,
     successUrl,
     cancelUrl,
+    paymentMethods = ['card', 'alipay'],
   }: {
     userId: string;
     planId: string;
     successUrl: string;
     cancelUrl: string;
+    paymentMethods?: string[];
   }) {
     try {
       // 获取用户信息
@@ -121,7 +123,7 @@ export class StripeService {
       // 创建结账会话
       const session = await getStripe().checkout.sessions.create({
         customer: stripeCustomerId,
-        payment_method_types: ['card'],
+        payment_method_types: paymentMethods, // 支持多种支付方式，包括支付宝
         line_items: [
           {
             price: plan.stripePriceId,
