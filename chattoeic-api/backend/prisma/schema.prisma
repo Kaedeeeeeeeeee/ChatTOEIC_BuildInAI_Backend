@@ -493,6 +493,25 @@ model AdminSubscriptionLog {
   @@map("admin_subscription_logs")
 }
 
+// ===============================
+// 邮件验证系统
+// ===============================
+
+model VerificationCode {
+  id           String   @id @default(cuid())
+  email        String
+  code         String
+  type         String   // "register" | "reset"
+  expiresAt    DateTime
+  attempts     Int      @default(0)
+  maxAttempts  Int      @default(5)
+  createdAt    DateTime @default(now())
+
+  @@index([email, type])
+  @@index([expiresAt])
+  @@map("verification_codes")
+}
+
 // 为User模型添加反向关联
 // User模型需要添加以下字段:
 // adminSubscriptionLogs AdminSubscriptionLog[]
