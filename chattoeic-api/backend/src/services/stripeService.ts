@@ -254,6 +254,126 @@ export class StripeService {
   }
 
   /**
+   * 创建一次性支付会话（支付宝等）
+   */
+  static async createOneTimePaymentSession({
+    userId,
+    planId,
+    successUrl,
+    cancelUrl,
+    paymentMethods = ['alipay'],
+  }: {
+    userId: string;
+    planId: string;
+    successUrl: string;
+    cancelUrl: string;
+    paymentMethods?: string[];
+  }) {
+    try {
+      // 获取用户信息
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true, name: true }
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // 获取订阅套餐信息
+      let plan = await prisma.subscriptionPlan.findUnique({
+        where: { id: planId }
+      });
+
+      // 如果数据库中没有套餐，使用fallback数据
+      if (!plan) {
+        const fallbackPlans: Record<string, any> = {
+          'premium_monthly': {
+            id: 'premium_monthly',
+            name: 'Premium Monthly',
+            priceCents: 300000 * 12, // 一次性支付按年计算
+            currency: 'jpy'
+          },
+          'premium_yearly': {
+            id: 'premium_yearly', 
+            name: 'Premium Yearly',
+            priceCents: 3000000, // 年度价格
+            currency: 'jpy'
+          }
+        };
+        
+        plan = fallbackPlans[planId];
+        if (!plan) {
+          throw new Error(`Plan ${planId} not found`);
+        }
+        
+        console.log(`⚠️ Using fallback plan data for one-time payment ${planId}`);
+      }
+
+      // 创建或获取Stripe客户
+      let stripeCustomerId = user.stripeCustomerId;
+      
+      if (!stripeCustomerId) {
+        const customer = await getStripe().customers.create({
+          email: user.email || undefined,
+          name: user.name || undefined,
+          metadata: {
+            userId: user.id,
+          },
+        });
+        stripeCustomerId = customer.id;
+      }
+
+      // 计算一次性支付价格
+      const oneTimePrice = planId === 'premium_monthly' ? plan.priceCents * 12 : plan.priceCents;
+
+      console.log(`💰 Creating one-time payment session for ${planId}, price: ${oneTimePrice} ${plan.currency}`);
+
+      // 创建结账会话 - 一次性支付模式
+      const session = await getStripe().checkout.sessions.create({
+        customer: stripeCustomerId,
+        payment_method_types: paymentMethods, // 支持支付宝等
+        mode: 'payment', // 一次性支付模式，支持支付宝
+        line_items: [
+          {
+            price_data: {
+              currency: plan.currency,
+              product_data: {
+                name: `${plan.name} - 12个月服务`,
+                description: `ChatTOEIC ${plan.name} 一次性支付，享受12个月完整服务`,
+              },
+              unit_amount: oneTimePrice,
+            },
+            quantity: 1,
+          },
+        ],
+        success_url: successUrl + '?session_id={CHECKOUT_SESSION_ID}&mode=one_time',
+        cancel_url: cancelUrl + '?mode=one_time',
+        metadata: {
+          userId: userId,
+          planId: planId,
+          paymentMode: 'one_time',
+          serviceMonths: '12',
+        },
+        expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30分钟过期
+      });
+
+      console.log(`✅ One-time payment session created: ${session.id}`);
+
+      const result = {
+        sessionId: session.id,
+        sessionUrl: session.url || '',
+        publicKey: process.env.STRIPE_PUBLISHABLE_KEY
+      };
+
+      return result;
+    } catch (error) {
+      log.error('Failed to create one-time payment session', { error, userId, planId });
+      throw error;
+    }
+  }
+
+  /**
    * 开始免费试用
    */
   static async startTrial(userId: string, planId: string) {

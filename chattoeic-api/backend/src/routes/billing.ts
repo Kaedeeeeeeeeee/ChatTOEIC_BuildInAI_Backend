@@ -973,7 +973,7 @@ router.delete('/debug-reset/:userId', async (req: Request, res: Response) => {
 
 /**
  * POST /api/billing/create-checkout-session
- * 创建Stripe结账会话
+ * 创建Stripe结账会话（订阅模式）
  */
 router.post('/create-checkout-session', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -1023,6 +1023,69 @@ router.post('/create-checkout-session', authenticateToken, async (req: Authentic
         errorMessage = '支付服务暂时不可用，请稍后重试';
       } else {
         // 在开发环境显示详细错误，生产环境显示通用错误
+        errorMessage = process.env.NODE_ENV === 'development' ? error.message : '创建支付会话失败';
+      }
+    }
+
+    res.status(400).json({
+      success: false,
+      error: errorMessage,
+      ...(process.env.NODE_ENV === 'development' && { 
+        debugInfo: error instanceof Error ? error.message : String(error) 
+      })
+    });
+  }
+});
+
+/**
+ * POST /api/billing/create-one-time-payment
+ * 创建一次性支付会话（支持支付宝）
+ */
+router.post('/create-one-time-payment', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { planId, returnUrl, cancelUrl, paymentMethods } = req.body;
+    
+    if (!planId) {
+      return res.status(400).json({
+        success: false,
+        error: '套餐ID不能为空',
+      });
+    }
+
+    const successUrl = returnUrl || `${process.env.FRONTEND_URL}/billing/success`;
+    const cancelUrl_final = cancelUrl || `${process.env.FRONTEND_URL}/billing/cancel`;
+    
+    const result = await StripeService.createOneTimePaymentSession({
+      userId,
+      planId,
+      successUrl,
+      cancelUrl: cancelUrl_final,
+      paymentMethods: paymentMethods || ['alipay'], // 默认支持支付宝
+    });
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    log.error('Failed to create one-time payment session', { 
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : error,
+      userId: req.user?.userId,
+      planId: req.body?.planId || 'unknown'
+    });
+
+    let errorMessage = '创建支付会话失败';
+    if (error instanceof Error) {
+      if (error.message.includes('Plan not found') || error.message.includes('missing Stripe price ID')) {
+        errorMessage = '套餐配置错误，请联系客服';
+      } else if (error.message.includes('Stripe')) {
+        errorMessage = '支付服务暂时不可用，请稍后重试';
+      } else {
         errorMessage = process.env.NODE_ENV === 'development' ? error.message : '创建支付会话失败';
       }
     }
