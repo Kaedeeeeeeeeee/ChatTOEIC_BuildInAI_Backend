@@ -1383,4 +1383,44 @@ router.post('/migrate-database-schema', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/billing/init-plans
+ * 强制重新初始化订阅套餐数据
+ */
+router.post('/init-plans', async (req: Request, res: Response) => {
+  try {
+    // 导入 ensureSubscriptionPlansExist 函数
+    const { ensureSubscriptionPlansExist } = await import('../utils/seedData.js');
+    
+    // 强制重新初始化套餐数据
+    await ensureSubscriptionPlansExist();
+    
+    // 清除相关缓存
+    const { clearCache } = await import('../middleware/cacheService.js');
+    clearCache('subscription_plans_active');
+    clearCache('subscription_plans_all');
+    
+    // 重新获取套餐数据验证
+    const plans = await prisma.subscriptionPlan.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' }
+    });
+    
+    res.json({
+      success: true,
+      message: '套餐数据重新初始化成功',
+      data: {
+        planCount: plans.length,
+        plans: plans.map(p => ({ id: p.id, name: p.name, interval: p.interval }))
+      }
+    });
+  } catch (error: any) {
+    log.error('Failed to initialize subscription plans:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '套餐数据初始化失败'
+    });
+  }
+});
+
 export default router;
