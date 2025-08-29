@@ -344,11 +344,11 @@ export class StripeService {
       let servicePeriodMonths;
       
       if (paymentPeriod === 'year') {
-        // 年付：给予优惠价格（相当于10个月）
-        oneTimePrice = plan.priceCents * 10;
+        // 年付：直接使用年付套餐价格，不做修改（保持与原套餐价格一致）
+        oneTimePrice = plan.priceCents;
         servicePeriodMonths = 12;
       } else {
-        // 月付：直接使用月价格
+        // 月付：直接使用月付套餐价格
         oneTimePrice = plan.priceCents;
         servicePeriodMonths = 1;
       }
