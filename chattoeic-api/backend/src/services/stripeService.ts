@@ -113,6 +113,10 @@ export class StripeService {
         throw new Error(`Plan ${planId} missing Stripe price ID`);
       }
 
+      // 🔧 修复：Alipay不支持订阅模式，只允许信用卡支付
+      const supportedPaymentMethods = ['card']; // 订阅模式只支持信用卡
+      console.log(`⚠️ Subscription mode only supports card payments, ignoring other methods`);
+
       // 检查用户是否已有订阅（包括试用和付费状态）
       const existingSubscription = await prisma.userSubscription.findUnique({
         where: { userId },
@@ -150,7 +154,7 @@ export class StripeService {
       // 创建结账会话
       const session = await getStripe().checkout.sessions.create({
         customer: stripeCustomerId,
-        payment_method_types: paymentMethods, // 支持多种支付方式，包括支付宝
+        payment_method_types: supportedPaymentMethods, // 订阅模式只支持信用卡
         line_items: [
           {
             price: plan.stripePriceId,
