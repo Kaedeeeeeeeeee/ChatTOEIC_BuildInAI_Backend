@@ -88,13 +88,15 @@ export async function ensureSubscriptionPlansExist(forceRecreate: boolean = fals
 
     // 创建套餐数据
     for (const planData of plans) {
+      console.log(`🔍 Creating plan ${planData.id} with stripePriceId: ${planData.stripePriceId}`);
       const created = await prisma.subscriptionPlan.create({
         data: planData
       });
       log.info('Created subscription plan', { 
         id: created.id, 
         name: created.name, 
-        price: created.priceCents 
+        price: created.priceCents,
+        stripePriceId: created.stripePriceId
       });
     }
 
