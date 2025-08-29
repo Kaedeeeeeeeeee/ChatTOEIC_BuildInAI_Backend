@@ -78,12 +78,39 @@ export class StripeService {
       }
 
       // 获取订阅套餐信息
-      const plan = await prisma.subscriptionPlan.findUnique({
+      let plan = await prisma.subscriptionPlan.findUnique({
         where: { id: planId }
       });
 
-      if (!plan || !plan.stripePriceId) {
-        throw new Error('Plan not found or missing Stripe price ID');
+      // 如果数据库中没有套餐，使用fallback数据
+      if (!plan) {
+        const fallbackPlans: Record<string, any> = {
+          'premium_monthly': {
+            id: 'premium_monthly',
+            name: 'Premium Monthly',
+            priceCents: 300000, // 3000日元
+            currency: 'jpy',
+            stripePriceId: process.env.STRIPE_PRICE_MONTHLY || 'price_placeholder_monthly'
+          },
+          'premium_yearly': {
+            id: 'premium_yearly', 
+            name: 'Premium Yearly',
+            priceCents: 3000000, // 30000日元
+            currency: 'jpy',
+            stripePriceId: process.env.STRIPE_PRICE_YEARLY || 'price_placeholder_yearly'
+          }
+        };
+        
+        plan = fallbackPlans[planId];
+        if (!plan) {
+          throw new Error(`Plan ${planId} not found`);
+        }
+        
+        console.log(`⚠️ Using fallback plan data for ${planId}`);
+      }
+
+      if (!plan.stripePriceId) {
+        throw new Error(`Plan ${planId} missing Stripe price ID`);
       }
 
       // 检查用户是否已有订阅（包括试用和付费状态）
