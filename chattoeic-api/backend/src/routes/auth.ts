@@ -861,6 +861,28 @@ router.post('/send-verification-code', authRateLimit, async (req: Request, res: 
       });
     }
 
+    // 尝试创建表（如果不存在）
+    try {
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "verification_codes" (
+          "id" TEXT NOT NULL,
+          "email" TEXT NOT NULL,
+          "code" TEXT NOT NULL,
+          "type" TEXT NOT NULL,
+          "expiresAt" TIMESTAMP(3) NOT NULL,
+          "attempts" INTEGER NOT NULL DEFAULT 0,
+          "maxAttempts" INTEGER NOT NULL DEFAULT 5,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "verification_codes_pkey" PRIMARY KEY ("id")
+        )
+      `;
+      
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "verification_codes_email_type_idx" ON "verification_codes"("email", "type")`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "verification_codes_expiresAt_idx" ON "verification_codes"("expiresAt")`;
+    } catch (createTableError) {
+      console.warn('Table creation attempted (may already exist):', createTableError.message);
+    }
+
     // 检查发送频率限制
     const canSend = await verificationCodeService.canSendCode(email, type);
     if (!canSend.canSend) {
@@ -882,7 +904,8 @@ router.post('/send-verification-code', authRateLimit, async (req: Request, res: 
     console.error('Send verification code error:', error);
     res.status(500).json({
       success: false,
-      error: '发送验证码失败，请稍后重试'
+      error: '发送验证码失败，请稍后重试',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
