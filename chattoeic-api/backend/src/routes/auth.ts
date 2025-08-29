@@ -8,6 +8,8 @@ import { authRateLimit, oauthRateLimit } from '../middleware/rateLimiting.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { AuthTokens, JWTPayload } from '../types/index.js';
 import { notifyDashboardUpdate } from './dashboard-stream.js';
+import { emailService } from '../services/emailService.js';
+import { verificationCodeService } from '../services/verificationCodeService.js';
 
 const router = Router();
 
@@ -776,6 +778,161 @@ router.get('/google/callback', oauthRateLimit, async (req: Request, res: Respons
     
     const frontendUrl = process.env.FRONTEND_URL || 'https://www.chattoeic.com';
     res.redirect(`${frontendUrl}/?error=${errorType}&details=${encodeURIComponent(error.message)}`);
+  }
+});
+
+// 发送验证码端点
+router.post('/send-verification-code', authRateLimit, async (req: Request, res: Response) => {
+  try {
+    const { email, type = 'register' } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: '邮箱是必需的'
+      });
+    }
+
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: '邮箱格式不正确'
+      });
+    }
+
+    // 验证类型参数
+    if (!['register', 'reset'].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        error: '验证码类型不正确'
+      });
+    }
+
+    // 检查发送频率限制
+    const canSend = await verificationCodeService.canSendCode(email, type);
+    if (!canSend.canSend) {
+      return res.status(429).json({
+        success: false,
+        error: `请等待 ${canSend.remainingTime} 秒后再重新发送`
+      });
+    }
+
+    // 生成并发送验证码
+    const code = await verificationCodeService.createVerificationCode(email, type);
+    await emailService.sendVerificationCode(email, code, type);
+
+    res.json({
+      success: true,
+      message: '验证码已发送，请查收邮件'
+    });
+  } catch (error) {
+    console.error('Send verification code error:', error);
+    res.status(500).json({
+      success: false,
+      error: '发送验证码失败，请稍后重试'
+    });
+  }
+});
+
+// 验证邮箱验证码端点
+router.post('/verify-email-code', authRateLimit, async (req: Request, res: Response) => {
+  try {
+    const { email, code, type = 'register' } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        error: '邮箱和验证码都是必需的'
+      });
+    }
+
+    // 验证验证码
+    const isValid = await verificationCodeService.verifyCode(email, code, type);
+
+    if (!isValid) {
+      return res.status(400).json({
+        success: false,
+        error: '验证码无效或已过期',
+        verified: false
+      });
+    }
+
+    res.json({
+      success: true,
+      message: '验证码验证成功',
+      verified: true
+    });
+  } catch (error) {
+    console.error('Verify email code error:', error);
+    res.status(500).json({
+      success: false,
+      error: '验证码验证失败，请稍后重试'
+    });
+  }
+});
+
+// 重置密码端点
+router.post('/reset-password', authRateLimit, async (req: Request, res: Response) => {
+  try {
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: '邮箱、验证码和新密码都是必需的'
+      });
+    }
+
+    // 密码强度验证
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: '密码长度至少8个字符'
+      });
+    }
+
+    // 验证验证码
+    const isValid = await verificationCodeService.verifyCode(email, code, 'reset');
+    if (!isValid) {
+      return res.status(400).json({
+        success: false,
+        error: '验证码无效或已过期'
+      });
+    }
+
+    // 查找用户
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: '用户不存在'
+      });
+    }
+
+    // 加密新密码
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // 更新用户密码
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword }
+    });
+
+    res.json({
+      success: true,
+      message: '密码重置成功，请使用新密码登录'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      error: '密码重置失败，请稍后重试'
+    });
   }
 });
 
