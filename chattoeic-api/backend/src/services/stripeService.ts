@@ -280,9 +280,24 @@ export class StripeService {
         throw new Error('User not found');
       }
 
+      // 解析planId，提取基础套餐ID和期间信息
+      let basePlanId = planId;
+      let paymentPeriod = 'month'; // 默认月付
+      
+      // 检查是否包含期间标识符
+      if (planId.includes('_month_onetime')) {
+        basePlanId = planId.replace('_month_onetime', '');
+        paymentPeriod = 'month';
+      } else if (planId.includes('_year_onetime')) {
+        basePlanId = planId.replace('_year_onetime', '');
+        paymentPeriod = 'year';
+      }
+      
+      console.log(`💡 Parsed planId: ${planId} -> basePlanId: ${basePlanId}, period: ${paymentPeriod}`);
+
       // 获取订阅套餐信息
       let plan = await prisma.subscriptionPlan.findUnique({
-        where: { id: planId }
+        where: { id: basePlanId }
       });
 
       // 如果数据库中没有套餐，使用fallback数据
@@ -291,23 +306,23 @@ export class StripeService {
           'premium_monthly': {
             id: 'premium_monthly',
             name: 'Premium Monthly',
-            priceCents: 300000 * 12, // 一次性支付按年计算
+            priceCents: 300000, // 基础月价格
             currency: 'jpy'
           },
           'premium_yearly': {
             id: 'premium_yearly', 
             name: 'Premium Yearly',
-            priceCents: 3000000, // 年度价格
+            priceCents: 3000000, // 基础年价格
             currency: 'jpy'
           }
         };
         
-        plan = fallbackPlans[planId];
+        plan = fallbackPlans[basePlanId];
         if (!plan) {
-          throw new Error(`Plan ${planId} not found`);
+          throw new Error(`Plan ${basePlanId} not found`);
         }
         
-        console.log(`⚠️ Using fallback plan data for one-time payment ${planId}`);
+        console.log(`⚠️ Using fallback plan data for one-time payment ${basePlanId}`);
       }
 
       // 创建或获取Stripe客户
@@ -324,10 +339,23 @@ export class StripeService {
         stripeCustomerId = customer.id;
       }
 
-      // 计算一次性支付价格
-      const oneTimePrice = planId === 'premium_monthly' ? plan.priceCents * 12 : plan.priceCents;
+      // 根据期间计算一次性支付价格
+      let oneTimePrice;
+      let servicePeriodMonths;
+      
+      if (paymentPeriod === 'year') {
+        // 年付：给予优惠价格（相当于10个月）
+        oneTimePrice = plan.priceCents * 10;
+        servicePeriodMonths = 12;
+      } else {
+        // 月付：直接使用月价格
+        oneTimePrice = plan.priceCents;
+        servicePeriodMonths = 1;
+      }
+      
+      console.log(`💰 Payment calculation: basePlan=${plan.priceCents}, period=${paymentPeriod}, finalPrice=${oneTimePrice}, serviceMonths=${servicePeriodMonths}`);
 
-      console.log(`💰 Creating one-time payment session for ${planId}, price: ${oneTimePrice} ${plan.currency}`);
+      console.log(`💰 Creating one-time payment session for ${planId} (${basePlanId} ${paymentPeriod}), price: ${oneTimePrice} ${plan.currency}, service: ${servicePeriodMonths} months`);
 
       // 创建结账会话 - 一次性支付模式
       const session = await getStripe().checkout.sessions.create({
@@ -339,8 +367,8 @@ export class StripeService {
             price_data: {
               currency: plan.currency,
               product_data: {
-                name: `${plan.name} - 12个月服务`,
-                description: `ChatTOEIC ${plan.name} 一次性支付，享受12个月完整服务`,
+                name: `${plan.name} - ${servicePeriodMonths}个月服务`,
+                description: `ChatTOEIC ${plan.name} 一次性支付，享受${servicePeriodMonths}个月完整服务${paymentPeriod === 'year' ? '（年付优惠）' : ''}`,
               },
               unit_amount: oneTimePrice,
             },
@@ -352,8 +380,10 @@ export class StripeService {
         metadata: {
           userId: userId,
           planId: planId,
+          basePlanId: basePlanId,
           paymentMode: 'one_time',
-          serviceMonths: '12',
+          paymentPeriod: paymentPeriod,
+          serviceMonths: servicePeriodMonths.toString(),
         },
         expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30分钟过期
       });
