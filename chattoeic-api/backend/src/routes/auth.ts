@@ -38,6 +38,20 @@ router.get('/test-email-endpoints', (req: Request, res: Response) => {
   });
 });
 
+// SMTP配置测试端点
+router.get('/debug/smtp-config', (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: {
+      smtp_host: process.env.SMTP_HOST || 'not_configured',
+      smtp_port: process.env.SMTP_PORT || 'not_configured', 
+      smtp_user: process.env.SMTP_USER ? (process.env.SMTP_USER.substring(0, 3) + '***' + process.env.SMTP_USER.slice(-3)) : 'not_configured',
+      smtp_pass: process.env.SMTP_PASS ? '***configured***' : 'not_configured',
+      smtp_pass_length: process.env.SMTP_PASS ? process.env.SMTP_PASS.length : 0
+    }
+  });
+});
+
 // 手动创建验证码表（临时使用）
 router.post('/create-verification-table', async (req: Request, res: Response) => {
   try {
