@@ -38,6 +38,41 @@ router.get('/test-email-endpoints', (req: Request, res: Response) => {
   });
 });
 
+// 手动创建验证码表（临时使用）
+router.post('/create-verification-table', async (req: Request, res: Response) => {
+  try {
+    // 创建验证码表
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS "verification_codes" (
+        "id" TEXT NOT NULL,
+        "email" TEXT NOT NULL,
+        "code" TEXT NOT NULL,
+        "type" TEXT NOT NULL,
+        "expiresAt" TIMESTAMP(3) NOT NULL,
+        "attempts" INTEGER NOT NULL DEFAULT 0,
+        "maxAttempts" INTEGER NOT NULL DEFAULT 5,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "verification_codes_pkey" PRIMARY KEY ("id")
+      )
+    `;
+    
+    // 创建索引
+    await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "verification_codes_email_type_idx" ON "verification_codes"("email", "type")`;
+    await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "verification_codes_expiresAt_idx" ON "verification_codes"("expiresAt")`;
+    
+    res.json({
+      success: true,
+      message: '验证码表创建成功'
+    });
+  } catch (error) {
+    console.error('Create verification table error:', error);
+    res.status(500).json({
+      success: false,
+      error: '创建表失败: ' + error.message
+    });
+  }
+});
+
 // 重置管理员密码端点 (临时使用)
 router.post('/debug/reset-admin-password', async (req: Request, res: Response) => {
   try {
