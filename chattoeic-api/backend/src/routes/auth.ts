@@ -210,7 +210,18 @@ router.get('/debug/admin', async (req: Request, res: Response) => {
 // 用户注册 - 应用认证速率限制
 router.post('/register', authRateLimit, validateRequest({ body: schemas.userRegister }), async (req: Request, res: Response) => {
   try {
-    const { email, password, name } = req.body;
+    const { email, password, name, verificationCode } = req.body;
+
+    // 如果提供了验证码，则验证它
+    if (verificationCode) {
+      const isValidCode = await verificationCodeService.verifyCode(email, verificationCode, 'register');
+      if (!isValidCode) {
+        return res.status(400).json({
+          success: false,
+          error: '验证码无效或已过期'
+        });
+      }
+    }
 
     // 检查用户是否已存在
     const existingUser = await prisma.user.findUnique({

@@ -65,7 +65,8 @@ export const schemas = {
   userRegister: Joi.object({
     email: Joi.string().email().required(),
     password: Joi.string().min(6).required(),
-    name: Joi.string().min(1).required()
+    name: Joi.string().min(1).required(),
+    verificationCode: Joi.string().length(6).optional() // 6位验证码，可选
   }),
 
   // 用户登录
