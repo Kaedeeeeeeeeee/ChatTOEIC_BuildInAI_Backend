@@ -24,6 +24,20 @@ router.get('/test', (req: Request, res: Response) => {
   });
 });
 
+// 测试邮件验证端点（不依赖数据库）
+router.get('/test-email-endpoints', (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    message: '邮件验证端点已部署',
+    endpoints: [
+      'POST /api/auth/send-verification-code',
+      'POST /api/auth/verify-email-code', 
+      'POST /api/auth/reset-password'
+    ],
+    timestamp: new Date().toISOString()
+  });
+});
+
 // 重置管理员密码端点 (临时使用)
 router.post('/debug/reset-admin-password', async (req: Request, res: Response) => {
   try {

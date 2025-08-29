@@ -9,21 +9,30 @@ interface EmailOptions {
 }
 
 class EmailService {
-  private transporter: nodemailer.Transporter;
+  private transporter: nodemailer.Transporter | null = null;
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
+    try {
+      this.transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+    } catch (error) {
+      logger.warn('Email service initialization failed - SMTP not configured', { error: error.message });
+      this.transporter = null;
+    }
   }
 
   async sendEmail(options: EmailOptions): Promise<void> {
+    if (!this.transporter) {
+      throw new Error('SMTP not configured - email service unavailable');
+    }
+    
     try {
       const info = await this.transporter.sendMail({
         from: `"ChatTOEIC" <${process.env.SMTP_USER}>`,
@@ -162,6 +171,11 @@ class EmailService {
   }
 
   async testConnection(): Promise<boolean> {
+    if (!this.transporter) {
+      logger.warn('Email service not configured - cannot test connection');
+      return false;
+    }
+    
     try {
       await this.transporter.verify();
       logger.info('Email service connection verified successfully');
