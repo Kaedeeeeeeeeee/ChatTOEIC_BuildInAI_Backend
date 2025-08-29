@@ -1396,9 +1396,9 @@ router.post('/init-plans', async (req: Request, res: Response) => {
     await ensureSubscriptionPlansExist();
     
     // 清除相关缓存
-    const { clearCache } = await import('../middleware/cacheService.js');
-    clearCache('subscription_plans_active');
-    clearCache('subscription_plans_all');
+    cache.delete('subscription_plans_active');
+    cache.delete('subscription_plans_all');
+    console.log('💡 Cache cleared for subscription plans');
     
     // 重新获取套餐数据验证
     const plans = await prisma.subscriptionPlan.findMany({
