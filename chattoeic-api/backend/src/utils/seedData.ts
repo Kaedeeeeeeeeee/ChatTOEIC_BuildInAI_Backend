@@ -6,14 +6,19 @@
 import { prisma } from './database.js';
 import { log } from './logger.js';
 
-export async function ensureSubscriptionPlansExist(): Promise<void> {
+export async function ensureSubscriptionPlansExist(forceRecreate: boolean = false): Promise<void> {
   try {
     // 检查是否已有套餐数据
     const existingPlans = await prisma.subscriptionPlan.findMany();
     
-    if (existingPlans.length > 0) {
+    if (existingPlans.length > 0 && !forceRecreate) {
       log.info('Subscription plans already exist', { count: existingPlans.length });
       return;
+    }
+    
+    if (forceRecreate && existingPlans.length > 0) {
+      log.info('Force recreating subscription plans...');
+      await prisma.subscriptionPlan.deleteMany();
     }
 
     log.info('Creating initial subscription plans...');

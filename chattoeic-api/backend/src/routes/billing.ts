@@ -1393,7 +1393,7 @@ router.post('/init-plans', async (req: Request, res: Response) => {
     const { ensureSubscriptionPlansExist } = await import('../utils/seedData.js');
     
     // 强制重新初始化套餐数据
-    await ensureSubscriptionPlansExist();
+    await ensureSubscriptionPlansExist(true);
     
     // 清除相关缓存
     cache.delete('subscription_plans_active');
