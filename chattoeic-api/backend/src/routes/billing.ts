@@ -1385,7 +1385,7 @@ router.post('/migrate-database-schema', async (req: Request, res: Response) => {
 
 /**
  * POST /api/billing/init-plans
- * 强制重新初始化订阅套餐数据
+ * 强制重新初始化订阅套餐数据 (v2)
  */
 router.post('/init-plans', async (req: Request, res: Response) => {
   try {
