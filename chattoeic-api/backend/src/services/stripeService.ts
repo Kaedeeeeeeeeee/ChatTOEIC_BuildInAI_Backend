@@ -90,14 +90,14 @@ export class StripeService {
             name: 'Premium Monthly',
             priceCents: 300000, // 3000日元
             currency: 'jpy',
-            stripePriceId: process.env.STRIPE_PRICE_MONTHLY || 'price_placeholder_monthly'
+            stripePriceId: process.env.STRIPE_PRICE_MONTHLY || 'price_1Qq4lDByBlkJ5QNQz5s1bDnn'
           },
           'premium_yearly': {
             id: 'premium_yearly', 
             name: 'Premium Yearly',
             priceCents: 3000000, // 30000日元
             currency: 'jpy',
-            stripePriceId: process.env.STRIPE_PRICE_YEARLY || 'price_placeholder_yearly'
+            stripePriceId: process.env.STRIPE_PRICE_YEARLY || 'price_1Qq4m9ByBlkJ5QNQqjLXW3qG'
           }
         };
         
