@@ -18,7 +18,9 @@ router.get('/test', (req: Request, res: Response) => {
   res.json({
     success: true,
     message: 'Auth route is working',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    version: 'v2.0-with-email-verification',
+    commitId: '437fbb6'
   });
 });
 
