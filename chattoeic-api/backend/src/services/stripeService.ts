@@ -370,7 +370,7 @@ export class StripeService {
                 name: `${plan.name} - ${servicePeriodMonths}个月服务`,
                 description: `ChatTOEIC ${plan.name} 一次性支付，享受${servicePeriodMonths}个月完整服务${paymentPeriod === 'year' ? '（年付优惠）' : ''}`,
               },
-              unit_amount: oneTimePrice,
+              unit_amount: Math.round(oneTimePrice / 100), // JPY不使用最小货币单位，需要除以100
             },
             quantity: 1,
           },
