@@ -552,7 +552,7 @@ router.get('/plans', async (req: Request, res: Response) => {
         dailyAiChat: plan.dailyAiChatLimit,
         vocabularyWords: plan.maxVocabularyWords,
       },
-      isPopular: plan.id === 'premium_monthly', // 标记高级版为推荐
+      isPopular: plan.id === 'premium_yearly', // 标记年付套餐为推荐
     }));
 
     const responseData = { plans: formattedPlans };
