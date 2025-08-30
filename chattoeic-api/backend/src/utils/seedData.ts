@@ -51,7 +51,7 @@ export async function ensureSubscriptionPlansExist(forceRecreate: boolean = fals
         priceCents: 300000, // 3000日元
         currency: 'jpy',
         interval: 'month',
-        stripePriceId: process.env.STRIPE_PRICE_MONTHLY || 'price_1Qq4lDByBlkJ5QNQz5s1bDnn',
+        stripePriceId: process.env.STRIPE_PRICE_ID_MONTHLY || 'price_1Qq4lDByBlkJ5QNQz5s1bDnn',
         features: {
           aiPractice: true,
           aiChat: true,
@@ -71,7 +71,7 @@ export async function ensureSubscriptionPlansExist(forceRecreate: boolean = fals
         priceCents: 3000000, // 30000日元 (相当于月付2500日元)
         currency: 'jpy',
         interval: 'year',
-        stripePriceId: process.env.STRIPE_PRICE_YEARLY || 'price_1Qq4m9ByBlkJ5QNQqjLXW3qG',
+        stripePriceId: process.env.STRIPE_PRICE_ID_YEARLY || 'price_1Qq4m9ByBlkJ5QNQqjLXW3qG',
         features: {
           aiPractice: true,
           aiChat: true,
