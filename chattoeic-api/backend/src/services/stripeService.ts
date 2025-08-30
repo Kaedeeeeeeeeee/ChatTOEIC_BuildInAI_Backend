@@ -237,6 +237,7 @@ export class StripeService {
       const session = await getStripe().billingPortal.sessions.create({
         customer: subscription.stripeCustomerId,
         return_url: returnUrl,
+        // 如果有默认配置，Stripe会自动使用，不需要明确指定configuration
       });
 
       log.info('Stripe portal session created', {
@@ -245,7 +246,7 @@ export class StripeService {
       });
 
       return {
-        portalUrl: session.url,
+        url: session.url,
       };
     } catch (error) {
       log.error('Failed to create portal session', { error, userId });
