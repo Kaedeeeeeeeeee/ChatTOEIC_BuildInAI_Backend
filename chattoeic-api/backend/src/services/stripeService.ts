@@ -777,19 +777,47 @@ export class StripeService {
    */
   private static async handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     const userId = subscription.metadata?.userId;
-    if (!userId) return;
+    if (!userId) {
+      log.warn('Subscription updated webhook missing userId metadata', { subscriptionId: subscription.id });
+      return;
+    }
 
-    await prisma.userSubscription.update({
-      where: { userId },
-      data: {
+    try {
+      // 先检查订阅是否存在
+      const existingSubscription = await prisma.userSubscription.findUnique({
+        where: { userId },
+      });
+
+      if (!existingSubscription) {
+        log.warn('Subscription not found for user during update', { userId, subscriptionId: subscription.id });
+        return;
+      }
+
+      await prisma.userSubscription.update({
+        where: { userId },
+        data: {
+          status: subscription.status,
+          currentPeriodStart: new Date(subscription.current_period_start * 1000),
+          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+          cancelAtPeriodEnd: subscription.cancel_at_period_end,
+          updatedAt: new Date(),
+        },
+      });
+
+      log.info('Subscription updated', { 
+        userId, 
+        subscriptionId: subscription.id, 
         status: subscription.status,
-        currentPeriodStart: new Date(subscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      },
-    });
-
-    log.info('Subscription updated', { userId, subscriptionId: subscription.id });
+        cancelAtPeriodEnd: subscription.cancel_at_period_end 
+      });
+    } catch (error) {
+      log.error('Failed to update subscription', { 
+        error, 
+        userId, 
+        subscriptionId: subscription.id 
+      });
+      throw error;
+    }
   }
 
   /**
@@ -797,17 +825,40 @@ export class StripeService {
    */
   private static async handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     const userId = subscription.metadata?.userId;
-    if (!userId) return;
+    if (!userId) {
+      log.warn('Subscription deleted webhook missing userId metadata', { subscriptionId: subscription.id });
+      return;
+    }
 
-    await prisma.userSubscription.update({
-      where: { userId },
-      data: {
-        status: 'canceled',
-        canceledAt: new Date(),
-      },
-    });
+    try {
+      // 先检查订阅是否存在
+      const existingSubscription = await prisma.userSubscription.findUnique({
+        where: { userId },
+      });
 
-    log.info('Subscription deleted', { userId, subscriptionId: subscription.id });
+      if (!existingSubscription) {
+        log.warn('Subscription not found for user during deletion', { userId, subscriptionId: subscription.id });
+        return;
+      }
+
+      await prisma.userSubscription.update({
+        where: { userId },
+        data: {
+          status: 'canceled',
+          canceledAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      log.info('Subscription deleted', { userId, subscriptionId: subscription.id });
+    } catch (error) {
+      log.error('Failed to delete subscription', { 
+        error, 
+        userId, 
+        subscriptionId: subscription.id 
+      });
+      throw error;
+    }
   }
 
   /**
