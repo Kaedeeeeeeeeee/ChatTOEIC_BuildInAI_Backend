@@ -976,8 +976,20 @@ router.post('/verify-email-code', authRateLimit, async (req: Request, res: Respo
 router.post('/reset-password', authRateLimit, async (req: Request, res: Response) => {
   try {
     const { email, code, newPassword } = req.body;
+    
+    log.info('Reset password attempt', { 
+      email, 
+      hasCode: !!code, 
+      hasPassword: !!newPassword,
+      bodyKeys: Object.keys(req.body)
+    });
 
     if (!email || !code || !newPassword) {
+      log.warn('Reset password missing required fields', { 
+        email: !!email, 
+        code: !!code, 
+        newPassword: !!newPassword 
+      });
       return res.status(400).json({
         success: false,
         error: '邮箱、验证码和新密码都是必需的'
@@ -995,6 +1007,10 @@ router.post('/reset-password', authRateLimit, async (req: Request, res: Response
     // 验证验证码
     const isValid = await verificationCodeService.verifyCode(email, code, 'reset');
     if (!isValid) {
+      log.warn('Reset password invalid verification code', { 
+        email, 
+        code: code.substr(0, 2) + '***', // 只记录前两位验证码用于调试
+      });
       return res.status(400).json({
         success: false,
         error: '验证码无效或已过期'
