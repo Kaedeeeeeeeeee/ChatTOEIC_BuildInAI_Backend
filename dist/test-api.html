@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Connection Test</title>
+</head>
+<body>
+    <h1>API 连接测试</h1>
+    <div id="result"></div>
+    
+    <script>
+        const resultDiv = document.getElementById('result');
+        
+        // 测试基本连接
+        resultDiv.innerHTML = '<p>正在测试API连接...</p>';
+        
+        fetch('http://localhost:3001/api/server-info')
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                return response.json();
+            })
+            .then(data => {
+                console.log('API响应成功:', data);
+                resultDiv.innerHTML = `
+                    <p style="color: green;">✅ API连接成功！</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            })
+            .catch(error => {
+                console.error('API连接失败:', error);
+                resultDiv.innerHTML = `
+                    <p style="color: red;">❌ API连接失败</p>
+                    <p>错误: ${error.message}</p>
+                    <p>请检查浏览器开发者工具的Console和Network标签</p>
+                `;
+            });
+            
+        // 测试注册API
+        setTimeout(() => {
+            fetch('http://localhost:3001/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: 'test-' + Date.now() + '@example.com',
+                    password: 'Test1234',
+                    username: 'testuser' + Date.now()
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('注册API测试:', data);
+                resultDiv.innerHTML += `
+                    <hr>
+                    <p style="color: green;">✅ 注册API也正常！</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            })
+            .catch(error => {
+                console.error('注册API失败:', error);
+                resultDiv.innerHTML += `
+                    <hr>
+                    <p style="color: red;">❌ 注册API失败</p>
+                    <p>错误: ${error.message}</p>
+                `;
+            });
+        }, 2000);
+    </script>
+</body>
+</html>

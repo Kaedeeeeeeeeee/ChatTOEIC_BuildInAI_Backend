@@ -1288,4 +1288,330 @@ router.get('/password-reset-status', authRateLimit, async (req: Request, res: Re
   }
 });
 
+// =================== 邮箱变更相关端点 ===================
+
+// 请求邮箱变更
+router.post('/request-email-change', authenticateToken, authRateLimit, async (req: Request, res: Response) => {
+  try {
+    const { newEmail } = req.body;
+    const userId = req.user!.userId;
+
+    if (!newEmail) {
+      return res.status(400).json({
+        success: false,
+        error: '新邮箱地址不能为空'
+      });
+    }
+
+    // 获取当前用户信息
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        emailVerified: true
+      }
+    });
+
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        error: '用户不存在'
+      });
+    }
+
+    if (!currentUser.emailVerified) {
+      return res.status(400).json({
+        success: false,
+        error: '请先验证您当前的邮箱地址'
+      });
+    }
+
+    // 检查新邮箱是否已被其他用户使用
+    const existingUser = await prisma.user.findUnique({
+      where: { email: newEmail },
+      select: { id: true }
+    });
+
+    if (existingUser && existingUser.id !== userId) {
+      return res.status(400).json({
+        success: false,
+        error: '该邮箱地址已被其他用户使用'
+      });
+    }
+
+    // 检查是否与当前邮箱相同
+    if (currentUser.email === newEmail) {
+      return res.status(400).json({
+        success: false,
+        error: '新邮箱不能与当前邮箱相同'
+      });
+    }
+
+    // 检查邮箱是否正在被其他用户请求变更
+    const isBeingUsed = authEmailService.isEmailBeingUsed(newEmail, userId);
+    if (isBeingUsed) {
+      return res.status(400).json({
+        success: false,
+        error: '该邮箱地址正在被其他用户申请使用'
+      });
+    }
+
+    // 获取请求信息
+    const userAgent = req.get('User-Agent');
+    const ipAddress = req.ip || req.connection.remoteAddress;
+
+    // 发送确认邮件到新邮箱
+    const emailResult = await authEmailService.sendEmailChangeConfirmationEmail(
+      userId,
+      currentUser.email,
+      newEmail,
+      currentUser.name || '用户',
+      userAgent,
+      ipAddress
+    );
+
+    if (emailResult.success) {
+      // 异步发送通知邮件到旧邮箱（不阻塞响应）
+      authEmailService.sendEmailChangeNotificationEmail(
+        currentUser.email,
+        newEmail,
+        currentUser.name || '用户',
+        userAgent,
+        ipAddress
+      ).catch(error => {
+        console.error('Failed to send email change notification:', error);
+      });
+
+      res.json({
+        success: true,
+        message: '确认邮件已发送到新邮箱，请查收并确认变更'
+      });
+    } else {
+      let errorMessage = '发送失败，请稍后重试';
+      
+      switch (emailResult.error) {
+        case 'invalid_email_format':
+          errorMessage = '邮箱格式不正确';
+          break;
+        case 'same_email':
+          errorMessage = '新邮箱不能与当前邮箱相同';
+          break;
+        case 'too_many_requests':
+          errorMessage = '请求过于频繁，请稍后再试';
+          break;
+        case 'request_too_frequent':
+          errorMessage = '请等待5分钟后再试';
+          break;
+      }
+
+      res.status(400).json({
+        success: false,
+        error: errorMessage
+      });
+    }
+
+  } catch (error) {
+    console.error('Email change request error:', error);
+    res.status(500).json({
+      success: false,
+      error: '服务器错误，请稍后重试'
+    });
+  }
+});
+
+// 验证邮箱变更
+router.post('/verify-email-change', authenticateToken, authRateLimit, async (req: Request, res: Response) => {
+  try {
+    const { newEmail, code } = req.body;
+    const userId = req.user!.userId;
+
+    if (!newEmail || !code) {
+      return res.status(400).json({
+        success: false,
+        error: '新邮箱和验证码不能为空'
+      });
+    }
+
+    // 获取当前用户信息
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true
+      }
+    });
+
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        error: '用户不存在'
+      });
+    }
+
+    // 验证验证码
+    const verificationResult = await authEmailService.verifyEmailChangeCode(
+      userId,
+      newEmail,
+      code
+    );
+
+    if (!verificationResult.success) {
+      let errorMessage = '验证失败';
+      
+      switch (verificationResult.error) {
+        case 'request_not_found':
+          errorMessage = '变更请求不存在或已过期';
+          break;
+        case 'request_expired':
+          errorMessage = '验证码已过期，请重新申请';
+          break;
+        case 'invalid_verification_code':
+          errorMessage = '验证码错误';
+          break;
+        case 'already_verified':
+          errorMessage = '该请求已被验证';
+          break;
+        case 'request_cancelled':
+          errorMessage = '变更请求已被取消';
+          break;
+      }
+
+      return res.status(400).json({
+        success: false,
+        error: errorMessage
+      });
+    }
+
+    // 验证成功，更新用户邮箱
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { 
+        email: newEmail,
+        emailVerified: true // 确保新邮箱是验证状态
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        emailVerified: true,
+        updatedAt: true
+      }
+    });
+
+    // 获取请求信息
+    const userAgent = req.get('User-Agent');
+    const ipAddress = req.ip || req.connection.remoteAddress;
+
+    // 异步发送成功通知邮件（不阻塞响应）
+    authEmailService.sendEmailChangeSuccessEmail(
+      verificationResult.oldEmail!,
+      newEmail,
+      currentUser.name || '用户',
+      userAgent,
+      ipAddress
+    ).catch(error => {
+      console.error('Failed to send email change success notification:', error);
+    });
+
+    // 生成新的访问令牌（邮箱更新了需要新token）
+    const tokens = generateTokens({
+      userId: updatedUser.id,
+      email: updatedUser.email,
+      role: req.user!.role
+    });
+
+    res.json({
+      success: true,
+      data: {
+        user: updatedUser,
+        ...tokens
+      },
+      message: '邮箱变更成功！请使用新邮箱登录'
+    });
+
+  } catch (error: any) {
+    console.error('Email change verification error:', error);
+    
+    if (error.code === 'P2002') {
+      return res.status(400).json({
+        success: false,
+        error: '该邮箱地址已被使用'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: '验证失败，请稍后重试'
+    });
+  }
+});
+
+// 取消邮箱变更请求
+router.post('/cancel-email-change', authenticateToken, authRateLimit, async (req: Request, res: Response) => {
+  try {
+    const { newEmail } = req.body;
+    const userId = req.user!.userId;
+
+    // 取消邮箱变更请求
+    const cancelResult = await authEmailService.cancelEmailChangeRequest(userId, newEmail);
+
+    if (cancelResult.success && cancelResult.cancelledCount > 0) {
+      res.json({
+        success: true,
+        message: `已取消 ${cancelResult.cancelledCount} 个邮箱变更请求`,
+        data: {
+          cancelledCount: cancelResult.cancelledCount
+        }
+      });
+    } else {
+      res.json({
+        success: true,
+        message: '没有找到可取消的变更请求',
+        data: {
+          cancelledCount: 0
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Cancel email change error:', error);
+    res.status(500).json({
+      success: false,
+      error: '取消失败，请稍后重试'
+    });
+  }
+});
+
+// 获取邮箱变更请求状态
+router.get('/email-change-status', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+
+    // 获取用户的邮箱变更请求状态
+    const status = authEmailService.getUserEmailChangeStatus(userId);
+
+    res.json({
+      success: true,
+      data: {
+        activeRequests: status.active.map(request => ({
+          newEmail: request.newEmail,
+          createdAt: request.createdAt,
+          expiresAt: request.expiresAt
+        })),
+        totalRequests: status.total
+      }
+    });
+
+  } catch (error) {
+    console.error('Email change status error:', error);
+    res.status(500).json({
+      success: false,
+      error: '获取状态失败，请稍后重试'
+    });
+  }
+});
+
 export default router;

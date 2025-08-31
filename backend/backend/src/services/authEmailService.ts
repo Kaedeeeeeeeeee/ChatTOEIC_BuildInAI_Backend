@@ -6,9 +6,13 @@ import React from 'react';
 import { emailService } from './emailService';
 import { verificationService } from './verificationService';
 import { passwordResetService } from './passwordResetService';
+import { emailChangeService } from './emailChangeService';
 import VerificationEmail from '../emails/templates/auth/VerificationEmail';
 import PasswordResetEmail from '../emails/templates/auth/PasswordResetEmail';
 import PasswordResetSuccessEmail from '../emails/templates/auth/PasswordResetSuccessEmail';
+import EmailChangeConfirmationEmail from '../emails/templates/auth/EmailChangeConfirmationEmail';
+import EmailChangeNotificationEmail from '../emails/templates/auth/EmailChangeNotificationEmail';
+import EmailChangeSuccessEmail from '../emails/templates/auth/EmailChangeSuccessEmail';
 
 // 邮件发送结果
 interface AuthEmailResult {
@@ -418,6 +422,293 @@ export class AuthEmailService {
    */
   getResetTokenStats() {
     return passwordResetService.getTokenStats();
+  }
+
+  /**
+   * 发送邮箱变更确认邮件（发送到新邮箱）
+   */
+  async sendEmailChangeConfirmationEmail(
+    userId: string,
+    oldEmail: string,
+    newEmail: string,
+    userName: string,
+    userAgent?: string,
+    ipAddress?: string
+  ): Promise<AuthEmailResult & { verificationCode?: string }> {
+    try {
+      // 验证新邮箱格式
+      if (!emailService.validateEmail(newEmail)) {
+        return {
+          success: false,
+          error: 'invalid_email_format'
+        };
+      }
+
+      // 创建邮箱变更请求
+      const changeResult = await emailChangeService.createEmailChangeRequest(
+        userId,
+        oldEmail,
+        newEmail,
+        userAgent,
+        ipAddress
+      );
+
+      if (!changeResult.success) {
+        return {
+          success: false,
+          error: changeResult.error
+        };
+      }
+
+      // 渲染确认邮件模板
+      const confirmationTemplate = React.createElement(EmailChangeConfirmationEmail, {
+        userName,
+        oldEmail,
+        newEmail,
+        verificationCode: changeResult.verificationCode!,
+        expiresInMinutes: 15
+      });
+
+      // 发送确认邮件到新邮箱
+      const result = await emailService.sendEmail({
+        to: newEmail,
+        subject: '确认您的新邮箱地址 - ChatTOEIC',
+        template: confirmationTemplate
+      });
+
+      if (result.success) {
+        console.log('📧 Email change confirmation sent:', {
+          userId,
+          oldEmail,
+          newEmail,
+          emailId: result.id
+        });
+
+        return {
+          success: true,
+          verificationCode: changeResult.verificationCode,
+          emailId: result.id
+        };
+      } else {
+        // 如果邮件发送失败，取消变更请求
+        await emailChangeService.cancelEmailChangeRequest(userId, newEmail);
+        
+        return {
+          success: false,
+          error: result.error || 'email_send_failed'
+        };
+      }
+
+    } catch (error: any) {
+      console.error('❌ Failed to send email change confirmation:', error);
+      return {
+        success: false,
+        error: error.message || 'unknown_error'
+      };
+    }
+  }
+
+  /**
+   * 发送邮箱变更通知邮件（发送到旧邮箱）
+   */
+  async sendEmailChangeNotificationEmail(
+    oldEmail: string,
+    newEmail: string,
+    userName: string,
+    userAgent?: string,
+    ipAddress?: string
+  ): Promise<AuthEmailResult> {
+    try {
+      const changeTime = new Date().toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Shanghai'
+      });
+
+      // 渲染通知邮件模板
+      const notificationTemplate = React.createElement(EmailChangeNotificationEmail, {
+        userName,
+        oldEmail,
+        newEmail,
+        changeTime,
+        userAgent,
+        ipAddress
+      });
+
+      // 发送通知邮件到旧邮箱
+      const result = await emailService.sendEmail({
+        to: oldEmail,
+        subject: '邮箱变更通知 - ChatTOEIC',
+        template: notificationTemplate
+      });
+
+      if (result.success) {
+        console.log('📧 Email change notification sent:', {
+          oldEmail,
+          newEmail,
+          emailId: result.id
+        });
+      }
+
+      return {
+        success: result.success,
+        emailId: result.id,
+        error: result.error
+      };
+
+    } catch (error: any) {
+      console.error('❌ Failed to send email change notification:', error);
+      return {
+        success: false,
+        error: error.message || 'unknown_error'
+      };
+    }
+  }
+
+  /**
+   * 验证邮箱变更验证码
+   */
+  async verifyEmailChangeCode(
+    userId: string,
+    newEmail: string,
+    code: string
+  ): Promise<{ 
+    success: boolean; 
+    oldEmail?: string; 
+    newEmail?: string; 
+    error?: string 
+  }> {
+    try {
+      const result = await emailChangeService.verifyEmailChangeCode(userId, newEmail, code);
+      
+      if (result.success) {
+        console.log('✅ Email change verified:', {
+          userId,
+          oldEmail: result.request!.oldEmail,
+          newEmail: result.request!.newEmail
+        });
+
+        return {
+          success: true,
+          oldEmail: result.request!.oldEmail,
+          newEmail: result.request!.newEmail
+        };
+      }
+
+      return {
+        success: false,
+        error: result.error
+      };
+
+    } catch (error: any) {
+      console.error('❌ Email change verification error:', error);
+      return {
+        success: false,
+        error: 'verification_error'
+      };
+    }
+  }
+
+  /**
+   * 发送邮箱变更成功邮件（发送到新邮箱）
+   */
+  async sendEmailChangeSuccessEmail(
+    oldEmail: string,
+    newEmail: string,
+    userName: string,
+    userAgent?: string,
+    ipAddress?: string
+  ): Promise<AuthEmailResult> {
+    try {
+      const changeTime = new Date().toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Shanghai'
+      });
+
+      // 渲染成功邮件模板
+      const successTemplate = React.createElement(EmailChangeSuccessEmail, {
+        userName,
+        oldEmail,
+        newEmail,
+        changeTime,
+        userAgent,
+        ipAddress
+      });
+
+      // 发送成功邮件到新邮箱
+      const result = await emailService.sendEmail({
+        to: newEmail,
+        subject: '邮箱变更成功 - ChatTOEIC',
+        template: successTemplate
+      });
+
+      if (result.success) {
+        console.log('📧 Email change success notification sent:', {
+          oldEmail,
+          newEmail,
+          emailId: result.id
+        });
+      }
+
+      return {
+        success: result.success,
+        emailId: result.id,
+        error: result.error
+      };
+
+    } catch (error: any) {
+      console.error('❌ Failed to send email change success notification:', error);
+      return {
+        success: false,
+        error: error.message || 'unknown_error'
+      };
+    }
+  }
+
+  /**
+   * 取消邮箱变更请求
+   */
+  async cancelEmailChangeRequest(
+    userId: string,
+    newEmail?: string
+  ): Promise<{ success: boolean; cancelledCount: number }> {
+    try {
+      return await emailChangeService.cancelEmailChangeRequest(userId, newEmail);
+    } catch (error: any) {
+      console.error('❌ Failed to cancel email change request:', error);
+      return {
+        success: false,
+        cancelledCount: 0
+      };
+    }
+  }
+
+  /**
+   * 获取用户的邮箱变更请求状态
+   */
+  getUserEmailChangeStatus(userId: string) {
+    return emailChangeService.getUserEmailChangeRequests(userId);
+  }
+
+  /**
+   * 检查邮箱是否已被其他用户请求使用
+   */
+  isEmailBeingUsed(newEmail: string, excludeUserId?: string): boolean {
+    return emailChangeService.isEmailBeingUsed(newEmail, excludeUserId);
+  }
+
+  /**
+   * 获取邮箱变更请求统计信息
+   */
+  getEmailChangeStats() {
+    return emailChangeService.getRequestStats();
   }
 }
 

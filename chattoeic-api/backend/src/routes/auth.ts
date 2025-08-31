@@ -10,6 +10,7 @@ import { AuthTokens, JWTPayload } from '../types/index.js';
 import { notifyDashboardUpdate } from './dashboard-stream.js';
 import { emailService } from '../services/emailService.js';
 import { verificationCodeService } from '../services/verificationCodeService.js';
+import { log } from '../utils/logger.js';
 
 const router = Router();
 

@@ -1,0 +1,226 @@
+
+> ai-toeic-practice@0.0.0 dev
+> vite --host 0.0.0.0 --port 5173
+
+
+  VITE v7.0.5  ready in 82 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://172.31.135.73:5173/
+  ➜  Network: http://198.19.249.3:5173/
+Error: Cannot apply unknown utility class `bg-primary-600`. Are you using CSS modules or similar and missing `@reference`? https://tailwindcss.com/docs/functions-and-directives#reference-directive
+    at onInvalidCandidate (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:18:1312)
+    at ge (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:13:29803)
+    at /Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:18:373
+    at I (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:3:1656)
+    at je (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:18:172)
+    at bi (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:35:780)
+    at async yi (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:35:1123)
+    at async _r (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@tailwindcss/node/dist/index.js:10:3384)
+    at async p (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@tailwindcss/postcss/dist/index.js:10:4019)
+    at async Object.Once (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@tailwindcss/postcss/dist/index.js:10:4290)
+    at async LazyResult.runAsync (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/postcss/lib/lazy-result.js:293:11)
+    at async runPostCSS (file:///Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/vite/dist/node/chunks/dep-Bg4HVnP5.js:32409:19)
+    at async compilePostCSS (file:///Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/vite/dist/node/chunks/dep-Bg4HVnP5.js:32389:17)
+    at async compileCSS (file:///Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/vite/dist/node/chunks/dep-Bg4HVnP5.js:32320:26)
+    at async TransformPluginContext.handler (file:///Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/vite/dist/node/chunks/dep-Bg4HVnP5.js:31856:53)
+    at async EnvironmentPluginContainer.transform (file:///Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/vite/dist/node/chunks/dep-Bg4HVnP5.js:31284:14)
+    at async loadAndTransform (file:///Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/vite/dist/node/chunks/dep-Bg4HVnP5.js:26454:26)
+2:52:34 PM [vite] (client) hmr update /src/components/common/ErrorBoundary.tsx, /src/index.css
+2:53:00 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+2:53:18 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+2:53:42 PM [vite] (client) hmr update /src/components/home/ScoreEstimation.tsx, /src/index.css
+2:53:47 PM [vite] (client) hmr update /src/components/common/LoadingSpinner.tsx, /src/index.css
+2:57:53 PM [vite] (client) hmr update /src/index.css, /src/components/practice/PracticePage.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+2:58:05 PM [vite] (client) hmr update /src/index.css, /src/components/home/HomePage.tsx, /src/components/review/ReviewPage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:12:21 PM [vite] (client) hmr update /src/components/practice/PracticePage.tsx, /src/index.css, /src/components/home/HomePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx
+3:12:31 PM [vite] (client) hmr update /src/components/practice/PracticePage.tsx, /src/index.css, /src/components/home/HomePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx
+3:12:43 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:16:08 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:16:14 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:21:47 PM [vite] (client) hmr update /src/components/common/Modal.tsx, /src/index.css
+3:21:52 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:22:56 PM [vite] (client) hmr update /src/components/common/Modal.tsx, /src/index.css
+3:23:03 PM [vite] (client) hmr update /src/components/common/Modal.tsx, /src/index.css
+3:23:42 PM [vite] (client) hmr update /src/components/common/Modal.tsx, /src/index.css
+3:23:48 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:23:54 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:23:59 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:24:04 PM [vite] (client) hmr update /src/components/common/Modal.tsx, /src/index.css
+3:25:34 PM [vite] (client) hmr update /src/components/common/Modal.tsx, /src/index.css
+3:25:38 PM [vite] (client) hmr update /src/components/common/Modal.tsx, /src/index.css
+3:25:44 PM [vite] (client) hmr update /src/components/common/Modal.tsx, /src/index.css
+3:26:47 PM [vite] (client) hmr update /src/components/common/Modal.tsx, /src/index.css
+3:29:15 PM [vite] (client) hmr update /src/components/practice/PracticePage.tsx, /src/index.css
+3:29:23 PM [vite] (client) hmr update /src/components/practice/PracticePage.tsx, /src/index.css
+3:29:36 PM [vite] (client) hmr update /src/components/practice/PracticePage.tsx, /src/index.css
+3:29:54 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:30:05 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:30:05 PM [vite] Internal server error: /Users/user/project/ChatTOEIC/ai-toeic-practice/src/components/home/HomePage.tsx: Expected corresponding JSX closing tag for <Link>. (163:8)
+
+  161 |             AI生成的TOEIC题目，个性化练习体验
+  162 |           </p>
+> 163 |         </button>
+      |         ^
+  164 |
+  165 |         <Link 
+  166 |           to="/revision"
+  Plugin: vite:react-babel
+  File: /Users/user/project/ChatTOEIC/ai-toeic-practice/src/components/home/HomePage.tsx:163:8
+  161|              AI生成的TOEIC题目，个性化练习体验
+  162|            </p>
+  163|          </button>
+     |          ^
+  164|  
+  165|          <Link 
+      at constructor (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:367:19)
+      at TypeScriptParserMixin.raise (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:6627:19)
+      at TypeScriptParserMixin.jsxParseElementAt (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:4757:16)
+      at TypeScriptParserMixin.jsxParseElementAt (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:4728:32)
+      at TypeScriptParserMixin.jsxParseElementAt (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:4728:32)
+      at TypeScriptParserMixin.jsxParseElementAt (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:4728:32)
+      at TypeScriptParserMixin.jsxParseElement (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:4779:17)
+      at TypeScriptParserMixin.parseExprAtom (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:4789:19)
+      at TypeScriptParserMixin.parseExprSubscripts (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:11076:23)
+      at TypeScriptParserMixin.parseUpdate (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:11061:21)
+      at TypeScriptParserMixin.parseMaybeUnary (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:11041:23)
+      at TypeScriptParserMixin.parseMaybeUnary (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:9852:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:10894:61)
+      at TypeScriptParserMixin.parseExprOps (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:10899:23)
+      at TypeScriptParserMixin.parseMaybeConditional (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:10876:23)
+      at TypeScriptParserMixin.parseMaybeAssign (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:10826:21)
+      at /Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:9790:39
+      at TypeScriptParserMixin.tryParse (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:6935:20)
+      at TypeScriptParserMixin.parseMaybeAssign (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:9790:18)
+      at /Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:10795:39
+      at TypeScriptParserMixin.allowInAnd (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:12427:12)
+      at TypeScriptParserMixin.parseMaybeAssignAllowIn (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:10795:17)
+      at TypeScriptParserMixin.parseMaybeAssignAllowInOrVoidPattern (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:12494:17)
+      at TypeScriptParserMixin.parseParenAndDistinguishExpression (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:11674:28)
+      at TypeScriptParserMixin.parseExprAtom (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:11326:23)
+      at TypeScriptParserMixin.parseExprAtom (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:4794:20)
+      at TypeScriptParserMixin.parseExprSubscripts (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:11076:23)
+      at TypeScriptParserMixin.parseUpdate (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:11061:21)
+      at TypeScriptParserMixin.parseMaybeUnary (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:11041:23)
+      at TypeScriptParserMixin.parseMaybeUnary (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:9852:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:10894:61)
+      at TypeScriptParserMixin.parseExprOps (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:10899:23)
+      at TypeScriptParserMixin.parseMaybeConditional (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:10876:23)
+      at TypeScriptParserMixin.parseMaybeAssign (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:10826:21)
+      at TypeScriptParserMixin.parseMaybeAssign (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:9801:20)
+      at TypeScriptParserMixin.parseExpressionBase (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:10779:23)
+      at /Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:10775:39
+      at TypeScriptParserMixin.allowInAnd (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:12422:16)
+      at TypeScriptParserMixin.parseExpression (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:10775:17)
+      at TypeScriptParserMixin.parseReturnStatement (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:13142:28)
+      at TypeScriptParserMixin.parseStatementContent (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:12798:21)
+      at TypeScriptParserMixin.parseStatementContent (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:9527:18)
+      at TypeScriptParserMixin.parseStatementLike (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:12767:17)
+      at TypeScriptParserMixin.parseStatementListItem (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:12747:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:13316:61)
+      at TypeScriptParserMixin.parseBlockBody (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:13309:10)
+      at TypeScriptParserMixin.parseBlock (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:13297:10)
+      at TypeScriptParserMixin.parseFunctionBody (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:12101:24)
+      at TypeScriptParserMixin.parseArrowExpression (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:12076:10)
+      at TypeScriptParserMixin.parseParenAndDistinguishExpression (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@babel/parser/lib/index.js:11686:12)
+3:31:45 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:32:09 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:37:52 PM [vite] (client) hmr update /src/components/layout/Header.tsx, /src/index.css
+3:37:52 PM [vite] (client) ✨ new dependencies optimized: zustand/middleware
+3:37:52 PM [vite] (client) ✨ optimized dependencies changed. reloading
+Error: Cannot apply unknown utility class `bg-primary-600`. Are you using CSS modules or similar and missing `@reference`? https://tailwindcss.com/docs/functions-and-directives#reference-directive
+    at onInvalidCandidate (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:18:1312)
+    at ge (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:13:29803)
+    at /Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:18:373
+    at I (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:3:1656)
+    at je (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:18:172)
+    at bi (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:35:780)
+    at async yi (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/tailwindcss/dist/lib.js:35:1123)
+    at async _r (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@tailwindcss/node/dist/index.js:10:3384)
+    at async p (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@tailwindcss/postcss/dist/index.js:10:4019)
+    at async Object.Once (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/@tailwindcss/postcss/dist/index.js:10:4290)
+    at async LazyResult.runAsync (/Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/postcss/lib/lazy-result.js:293:11)
+    at async runPostCSS (file:///Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/vite/dist/node/chunks/dep-Bg4HVnP5.js:32409:19)
+    at async compilePostCSS (file:///Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/vite/dist/node/chunks/dep-Bg4HVnP5.js:32389:17)
+    at async compileCSS (file:///Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/vite/dist/node/chunks/dep-Bg4HVnP5.js:32320:26)
+    at async TransformPluginContext.handler (file:///Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/vite/dist/node/chunks/dep-Bg4HVnP5.js:31856:53)
+    at async EnvironmentPluginContainer.transform (file:///Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/vite/dist/node/chunks/dep-Bg4HVnP5.js:31284:14)
+    at async loadAndTransform (file:///Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/vite/dist/node/chunks/dep-Bg4HVnP5.js:26454:26)
+    at async DevEnvironment.warmupRequest (file:///Users/user/project/ChatTOEIC/ai-toeic-practice/node_modules/vite/dist/node/chunks/dep-Bg4HVnP5.js:35417:4)
+3:38:04 PM [vite] (client) hmr update /src/components/layout/Header.tsx, /src/index.css
+3:38:29 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:38:34 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:39:10 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:39:15 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:39:22 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:39:33 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:39:43 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:40:02 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:40:05 PM [vite] (client) hmr update /src/components/home/HomePage.tsx, /src/index.css
+3:40:12 PM [vite] (client) hmr update /src/components/practice/PracticePage.tsx, /src/index.css
+3:40:17 PM [vite] (client) hmr update /src/components/practice/PracticePage.tsx, /src/index.css
+3:40:29 PM [vite] (client) hmr update /src/components/practice/PracticePage.tsx, /src/index.css
+3:41:11 PM [vite] (client) hmr update /src/index.css, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:41:15 PM [vite] (client) hmr update /src/index.css, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:41:19 PM [vite] (client) hmr update /src/index.css, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:41:23 PM [vite] (client) hmr update /src/index.css, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:41:31 PM [vite] (client) hmr update /src/index.css, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:41:36 PM [vite] (client) hmr update /src/index.css, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:41:44 PM [vite] (client) hmr update /src/index.css, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:41:49 PM [vite] (client) hmr update /src/index.css, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:41:54 PM [vite] (client) hmr update /src/index.css, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:42:05 PM [vite] (client) hmr update /src/index.css, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:45:12 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx
+3:45:24 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx
+3:45:34 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx
+3:45:42 PM [vite] (client) hmr update /src/index.css, /src/components/common/LanguageSelector.tsx, /src/components/layout/Header.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:46:00 PM [vite] (client) hmr update /src/components/practice/PracticeSession.tsx, /src/index.css
+3:46:06 PM [vite] (client) hmr update /src/components/practice/PracticeSession.tsx, /src/index.css
+3:46:16 PM [vite] (client) hmr update /src/components/practice/PracticeSession.tsx, /src/index.css
+3:46:30 PM [vite] (client) hmr update /src/components/practice/PracticeResults.tsx, /src/index.css
+3:46:34 PM [vite] (client) hmr update /src/components/practice/PracticeResults.tsx, /src/index.css
+3:46:43 PM [vite] (client) hmr update /src/components/practice/PracticeResults.tsx, /src/index.css
+3:47:05 PM [vite] (client) hmr update /src/components/practice/PracticeResults.tsx, /src/index.css
+3:47:14 PM [vite] (client) hmr update /src/components/practice/PracticeResults.tsx, /src/index.css
+3:47:43 PM [vite] (client) hmr update /src/components/revision/RevisionPage.tsx, /src/index.css
+3:47:51 PM [vite] (client) hmr update /src/components/revision/RevisionPage.tsx, /src/index.css
+3:50:30 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx
+3:50:41 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx
+3:50:50 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx
+3:50:58 PM [vite] (client) hmr update /src/index.css, /src/components/common/LanguageSelector.tsx, /src/components/layout/Header.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:51:04 PM [vite] (client) hmr update /src/components/home/PracticeSetupForm.tsx, /src/index.css
+3:51:11 PM [vite] (client) hmr update /src/components/home/PracticeSetupForm.tsx, /src/index.css
+3:51:27 PM [vite] (client) hmr update /src/components/home/PracticeSetupForm.tsx, /src/index.css
+3:52:46 PM [vite] (client) hmr update /src/components/home/PracticeSetupForm.tsx, /src/index.css
+3:52:54 PM [vite] (client) hmr update /src/components/home/PracticeSetupForm.tsx, /src/index.css
+3:53:01 PM [vite] (client) hmr update /src/components/home/PracticeSetupForm.tsx, /src/index.css
+3:53:19 PM [vite] (client) hmr update /src/components/review/ReviewPage.tsx, /src/index.css
+3:53:23 PM [vite] (client) hmr update /src/components/review/ReviewPage.tsx, /src/index.css
+3:53:32 PM [vite] (client) hmr update /src/index.css, /src/components/common/LanguageSelector.tsx, /src/components/layout/Header.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx, /src/components/home/PracticeSetupForm.tsx, /src/components/review/ReviewPage.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:53:57 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx, /src/components/home/PracticeSetupForm.tsx, /src/components/review/ReviewPage.tsx
+3:54:04 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx, /src/components/home/PracticeSetupForm.tsx, /src/components/review/ReviewPage.tsx
+3:54:11 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx, /src/components/home/PracticeSetupForm.tsx, /src/components/review/ReviewPage.tsx
+3:54:24 PM [vite] (client) hmr update /src/components/review/ReviewPage.tsx, /src/index.css
+3:54:33 PM [vite] (client) hmr update /src/components/review/ReviewPage.tsx, /src/index.css
+3:54:41 PM [vite] (client) hmr update /src/components/review/ReviewPage.tsx, /src/index.css
+3:54:47 PM [vite] (client) hmr update /src/components/review/ReviewPage.tsx, /src/index.css
+3:55:09 PM [vite] (client) hmr update /src/components/revision/RevisionPage.tsx, /src/index.css
+3:55:16 PM [vite] (client) hmr update /src/index.css, /src/components/common/LanguageSelector.tsx, /src/components/layout/Header.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx, /src/components/home/PracticeSetupForm.tsx, /src/components/review/ReviewPage.tsx, /src/components/revision/ChatHistoryModal.tsx, /src/components/review/AIChat.tsx
+3:55:26 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx, /src/components/home/PracticeSetupForm.tsx, /src/components/review/ReviewPage.tsx
+3:56:00 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx, /src/components/home/PracticeSetupForm.tsx, /src/components/review/ReviewPage.tsx
+3:56:05 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx, /src/components/home/PracticeSetupForm.tsx, /src/components/review/ReviewPage.tsx
+3:56:20 PM [vite] (client) hmr update /src/components/revision/RevisionPage.tsx, /src/index.css
+3:58:38 PM [vite] (client) hmr update /src/components/layout/Header.tsx, /src/index.css
+3:58:59 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx, /src/components/home/PracticeSetupForm.tsx, /src/components/review/ReviewPage.tsx
+3:59:03 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx, /src/components/home/PracticeSetupForm.tsx, /src/components/review/ReviewPage.tsx
+3:59:08 PM [vite] (client) hmr update /src/index.css, /src/components/layout/Header.tsx, /src/components/common/LanguageSelector.tsx, /src/components/home/HomePage.tsx, /src/components/practice/PracticePage.tsx, /src/components/practice/PracticeSession.tsx, /src/components/practice/PracticeResults.tsx, /src/components/revision/RevisionPage.tsx, /src/components/home/PracticeSetupForm.tsx, /src/components/review/ReviewPage.tsx
+3:59:24 PM [vite] (client) page reload src/components/layout/__tests__/Header.test.tsx
+4:01:07 PM [vite] (client) hmr update /src/components/layout/Header.tsx, /src/index.css
+4:08:19 PM [vite] (client) page reload index.html
+4:10:25 PM [vite] (client) page reload index.html
+4:14:57 PM [vite] (client) page reload README.md
+4:15:00 PM [vite] (client) page reload README.md
+4:15:05 PM [vite] (client) page reload README.md
+4:16:44 PM [vite] (client) page reload README.md
+4:16:46 PM [vite] (client) page reload README.md
+4:16:50 PM [vite] (client) page reload README.md
