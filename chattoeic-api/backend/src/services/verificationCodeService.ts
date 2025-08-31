@@ -64,6 +64,16 @@ class VerificationCodeService {
 
   // 验证验证码
   async verifyCode(email: string, code: string, type: 'register' | 'reset' = 'register'): Promise<boolean> {
+    return this.verifyCodeInternal(email, code, type, true); // 验证后删除验证码
+  }
+
+  // 验证验证码但不删除（用于密码重置流程）
+  async verifyCodeWithoutDelete(email: string, code: string, type: 'register' | 'reset' = 'register'): Promise<boolean> {
+    return this.verifyCodeInternal(email, code, type, false); // 验证后不删除验证码
+  }
+
+  // 内部验证方法
+  private async verifyCodeInternal(email: string, code: string, type: 'register' | 'reset' = 'register', deleteOnSuccess: boolean = true): Promise<boolean> {
     try {
       // 查找验证码
       const verificationRecord = await prisma.verificationCode.findFirst({
@@ -120,17 +130,23 @@ class VerificationCodeService {
       const isValid = verificationRecord.code === code;
 
       if (isValid) {
-        // 验证成功，删除验证码
-        await prisma.verificationCode.delete({
-          where: {
-            id: verificationRecord.id
-          }
-        });
-
-        logger.info('Verification code verified successfully', {
-          email,
-          type
-        });
+        // 只在指定时才删除验证码
+        if (deleteOnSuccess) {
+          await prisma.verificationCode.delete({
+            where: {
+              id: verificationRecord.id
+            }
+          });
+          logger.info('Verification code verified successfully and deleted', {
+            email,
+            type
+          });
+        } else {
+          logger.info('Verification code verified successfully (kept for reuse)', {
+            email,
+            type
+          });
+        }
       } else {
         logger.warn('Invalid verification code', {
           email,
@@ -188,6 +204,30 @@ class VerificationCodeService {
       });
       // 如果出错，允许发送
       return { canSend: true };
+    }
+  }
+
+  // 删除指定邮箱和类型的验证码（用于密码重置完成后清理）
+  async deleteVerificationCode(email: string, type: 'register' | 'reset' = 'register'): Promise<void> {
+    try {
+      const result = await prisma.verificationCode.deleteMany({
+        where: {
+          email,
+          type
+        }
+      });
+
+      logger.info('Verification code deleted', {
+        email,
+        type,
+        count: result.count
+      });
+    } catch (error) {
+      logger.error('Failed to delete verification code', {
+        error: error.message,
+        email,
+        type
+      });
     }
   }
 

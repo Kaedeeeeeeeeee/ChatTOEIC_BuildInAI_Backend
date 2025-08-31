@@ -990,8 +990,8 @@ router.post('/verify-email-code', authRateLimit, async (req: Request, res: Respo
       });
     }
 
-    // 验证验证码
-    const isValid = await verificationCodeService.verifyCode(email, code, type);
+    // 验证验证码（不删除，用于密码重置流程）
+    const isValid = await verificationCodeService.verifyCodeWithoutDelete(email, code, type);
 
     if (!isValid) {
       return res.status(400).json({
@@ -1080,6 +1080,11 @@ router.post('/reset-password', authRateLimit, async (req: Request, res: Response
       where: { id: user.id },
       data: { password: hashedPassword }
     });
+
+    // 密码重置成功后删除验证码
+    await verificationCodeService.deleteVerificationCode(email, 'reset');
+
+    log.info('Password reset completed successfully', { email });
 
     res.json({
       success: true,
