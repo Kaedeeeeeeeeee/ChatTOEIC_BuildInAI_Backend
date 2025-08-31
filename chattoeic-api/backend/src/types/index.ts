@@ -1,3 +1,5 @@
+import { Request } from 'express';
+
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -29,8 +31,21 @@ export interface JWTPayload {
   userId: string;
   email: string;
   role: string;
+  name?: string;
   iat?: number;
   exp?: number;
+}
+
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    email: string;
+    name?: string;
+    role: string;
+  };
+  body: any;
+  query: any;
+  params: any;
 }
 
 export interface QuestionGenerationRequest {
@@ -48,7 +63,7 @@ export interface GeneratedQuestion {
   difficulty: string;
   question: string;
   options?: string[];
-  correctAnswer: string;
+  correctAnswer: string | number;
   explanation: string;
   audioUrl?: string;
   imageUrl?: string;
