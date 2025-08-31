@@ -39,6 +39,48 @@ router.get('/test-email-endpoints', (req: Request, res: Response) => {
   });
 });
 
+// 验证码调试端点
+router.get('/debug/verification-codes/:email', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.params;
+    
+    // 获取该邮箱所有验证码
+    const codes = await prisma.verificationCode.findMany({
+      where: { email },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    const now = new Date();
+    const stats = await verificationCodeService.getCodeStats();
+    
+    res.json({
+      success: true,
+      data: {
+        email,
+        currentTime: now.toISOString(),
+        codes: codes.map(code => ({
+          id: code.id,
+          type: code.type,
+          code: code.code.substr(0, 2) + '***', // 部分隐藏
+          createdAt: code.createdAt,
+          expiresAt: code.expiresAt,
+          attempts: code.attempts,
+          maxAttempts: code.maxAttempts,
+          isExpired: now > code.expiresAt,
+          timeToExpiry: code.expiresAt.getTime() - now.getTime()
+        })),
+        stats
+      }
+    });
+  } catch (error) {
+    console.error('Debug verification codes error:', error);
+    res.status(500).json({
+      success: false,
+      error: '调试端点出错'
+    });
+  }
+});
+
 // SMTP配置测试端点
 router.get('/debug/smtp-config', (req: Request, res: Response) => {
   res.json({
