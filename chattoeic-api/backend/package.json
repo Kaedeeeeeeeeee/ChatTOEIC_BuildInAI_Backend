@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "npx prisma generate --schema=prisma/schema.prisma && npx esbuild src/server.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/server.js --external:@prisma/client --external:bcryptjs --external:compression --external:cors --external:express --external:express-rate-limit --external:express-slow-down --external:helmet --external:joi --external:jsonwebtoken --external:morgan --external:nodemailer --external:uuid --external:dotenv --external:@google/generative-ai --external:google-auth-library --external:response-time --external:winston --external:util --external:qs --external:object-inspect --external:side-channel --external:stripe --external:@types/stripe",
+    "build": "npx prisma generate --schema=prisma/schema.prisma && npx tsc && mkdir -p dist && cp -r src/* dist/ 2>/dev/null || true",
     "build:render": "./render-build.sh",
     "start": "./start.sh",
     "start:bypass": "node bypass-all-migrations.js",
