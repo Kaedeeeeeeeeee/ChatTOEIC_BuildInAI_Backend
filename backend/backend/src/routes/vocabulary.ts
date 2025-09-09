@@ -555,6 +555,7 @@ router.post('/definition',
   async (req: Request, res: Response) => {
     try {
       const { word, language = 'zh' } = req.body;
+      const userId = req.user!.userId;
       
       if (!word || typeof word !== 'string') {
         return res.status(400).json({
@@ -563,13 +564,57 @@ router.post('/definition',
         });
       }
 
-      console.log(`🔍 Getting definition for word: ${word}, language: ${language}`);
+      console.log(`🔍 Getting definition for word: ${word}, language: ${language}, user: ${userId}`);
 
+      // 1. 先查询数据库是否已有该单词的记录（优先查询当前用户的记录）
+      let existingWord = await prisma.vocabularyItem.findFirst({
+        where: {
+          userId,
+          word: word.toLowerCase()
+        }
+      });
+
+      // 2. 如果当前用户没有，查询是否有其他用户的记录可以复用
+      if (!existingWord) {
+        existingWord = await prisma.vocabularyItem.findFirst({
+          where: {
+            word: word.toLowerCase(),
+            meanings: {
+              not: null // 确保有有效的meanings数据
+            }
+          },
+          orderBy: {
+            addedAt: 'desc' // 获取最新的记录
+          }
+        });
+      }
+
+      // 3. 如果数据库中有记录，直接返回
+      if (existingWord && existingWord.meanings) {
+        console.log(`✅ Found existing definition for ${word} in database`);
+        
+        res.json({
+          success: true,
+          data: {
+            word,
+            definition: existingWord.definition || '未找到释义',
+            phonetic: existingWord.phonetic,
+            partOfSpeech: existingWord.meanings[0]?.partOfSpeech || '',
+            meanings: existingWord.meanings || []
+          }
+        });
+        return;
+      }
+
+      // 4. 数据库中没有记录，调用AI API获取
+      console.log(`🤖 No existing definition found, fetching from AI for word: ${word}`);
+      
       try {
         const wordDefinition = await geminiService.getWordDefinition(word, '', language);
         
-        console.log(`✅ Definition fetched for ${word}`);
+        console.log(`✅ AI definition fetched for ${word}`);
 
+        // 5. 返回AI获取的结果（格式与"添加生词"一致）
         res.json({
           success: true,
           data: {
@@ -581,7 +626,7 @@ router.post('/definition',
           }
         });
       } catch (error) {
-        console.error(`❌ Failed to get definition for ${word}:`, error);
+        console.error(`❌ Failed to get AI definition for ${word}:`, error);
         
         res.status(500).json({
           success: false,
