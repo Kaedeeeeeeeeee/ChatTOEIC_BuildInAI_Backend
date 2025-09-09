@@ -549,6 +549,55 @@ router.get('/stats',
   }
 );
 
+// 获取词汇定义（用于翻译功能）
+router.post('/definition',
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      const { word, language = 'zh' } = req.body;
+      
+      if (!word || typeof word !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: '请提供有效的单词'
+        });
+      }
+
+      console.log(`🔍 Getting definition for word: ${word}, language: ${language}`);
+
+      try {
+        const wordDefinition = await geminiService.getWordDefinition(word, '', language);
+        
+        console.log(`✅ Definition fetched for ${word}`);
+
+        res.json({
+          success: true,
+          data: {
+            word,
+            definition: wordDefinition.definition || '未找到释义',
+            phonetic: wordDefinition.phonetic,
+            partOfSpeech: wordDefinition.partOfSpeech,
+            meanings: wordDefinition.meanings || []
+          }
+        });
+      } catch (error) {
+        console.error(`❌ Failed to get definition for ${word}:`, error);
+        
+        res.status(500).json({
+          success: false,
+          error: 'AI翻译服务暂时不可用，请稍后重试'
+        });
+      }
+    } catch (error) {
+      console.error('Get definition error:', error);
+      res.status(500).json({
+        success: false,
+        error: '获取词汇定义失败'
+      });
+    }
+  }
+);
+
 // 北京时间处理工具函数
 function getBeijingTime(): Date {
   const now = new Date();
