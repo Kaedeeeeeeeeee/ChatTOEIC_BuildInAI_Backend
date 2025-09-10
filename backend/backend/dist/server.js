@@ -96,7 +96,7 @@ router.get("/", async (req, res) => {
     status: "healthy",
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
     uptime: process.uptime(),
-    version: process.env.npm_package_version || "2.0.0"
+    version: process.env.npm_package_version || "2.0.1-force-deploy"
   };
   res.status(200).json(healthStatus);
 });
@@ -126,7 +126,7 @@ router.get("/detailed", async (req, res) => {
       status: skipDbCheck ? "healthy" : dbStatus.connected ? "healthy" : "unhealthy",
       timestamp: (/* @__PURE__ */ new Date()).toISOString(),
       uptime: process.uptime(),
-      version: process.env.npm_package_version || "2.0.0",
+      version: process.env.npm_package_version || "2.0.1-force-deploy",
       database: dbStatus,
       memory: {
         used: Math.round(memUsage.heapUsed / 1024 / 1024),
@@ -161,7 +161,7 @@ router.get("/detailed", async (req, res) => {
       status: "unhealthy",
       timestamp: (/* @__PURE__ */ new Date()).toISOString(),
       uptime: process.uptime(),
-      version: process.env.npm_package_version || "2.0.0",
+      version: process.env.npm_package_version || "2.0.1-force-deploy",
       error: "Health check failed"
     });
   }
