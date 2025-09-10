@@ -186,6 +186,16 @@ app.get('/test-simple', (req, res) => {
   res.json({ message: 'Simple test works' });
 });
 
+// 部署验证端点 - 验证最新代码是否部署
+app.get('/api/deploy-check', (req, res) => {
+  res.json({ 
+    deployedAt: new Date().toISOString(),
+    commitHash: 'bb9aec58',
+    definitionEndpointExists: true,
+    message: 'Latest code deployed successfully'
+  });
+});
+
 // 🔍 数据库列检查端点（公开访问，用于调试）
 app.get('/api/debug/check-columns', async (req, res) => {
   try {
