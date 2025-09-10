@@ -550,32 +550,41 @@ router.get('/stats',
 );
 
 // 获取词汇定义（用于翻译功能）
+console.log('🔧 [路由注册] 注册 POST /vocabulary/definition 端点');
 router.post('/definition',
   authenticateToken,
   async (req: Request, res: Response) => {
     try {
+      console.log(`🚀 [后端API] 收到词汇定义请求`);
+      console.log(`🚀 [后端API] 请求体:`, req.body);
+      console.log(`🚀 [后端API] 用户信息:`, req.user);
+      
       const { word, language = 'zh' } = req.body;
       const userId = req.user!.userId;
       
       if (!word || typeof word !== 'string') {
+        console.log(`❌ [后端API] 无效的单词参数: ${word}`);
         return res.status(400).json({
           success: false,
           error: '请提供有效的单词'
         });
       }
 
-      console.log(`🔍 Getting definition for word: ${word}, language: ${language}, user: ${userId}`);
+      console.log(`🔍 [后端API] 开始处理词汇定义: word="${word}", language="${language}", user="${userId}"`);
 
       // 1. 先查询数据库是否已有该单词的记录（优先查询当前用户的记录）
+      console.log(`🗄️ [后端API] 查询用户词汇记录: userId="${userId}", word="${word.toLowerCase()}"`);
       let existingWord = await prisma.vocabularyItem.findFirst({
         where: {
           userId,
           word: word.toLowerCase()
         }
       });
+      console.log(`🗄️ [后端API] 用户词汇查询结果:`, existingWord ? '找到记录' : '未找到记录');
 
       // 2. 如果当前用户没有，查询是否有其他用户的记录可以复用
       if (!existingWord) {
+        console.log(`🗄️ [后端API] 查询其他用户词汇记录: word="${word.toLowerCase()}"`);
         existingWord = await prisma.vocabularyItem.findFirst({
           where: {
             word: word.toLowerCase(),
@@ -587,13 +596,14 @@ router.post('/definition',
             addedAt: 'desc' // 获取最新的记录
           }
         });
+        console.log(`🗄️ [后端API] 其他用户词汇查询结果:`, existingWord ? '找到记录' : '未找到记录');
       }
 
       // 3. 如果数据库中有记录，直接返回
       if (existingWord && existingWord.meanings) {
-        console.log(`✅ Found existing definition for ${word} in database`);
+        console.log(`✅ [后端API] 数据库中找到词汇定义: ${word}`, existingWord.meanings);
         
-        res.json({
+        const response = {
           success: true,
           data: {
             word,
@@ -602,20 +612,24 @@ router.post('/definition',
             partOfSpeech: existingWord.meanings[0]?.partOfSpeech || '',
             meanings: existingWord.meanings || []
           }
-        });
+        };
+        
+        console.log(`📤 [后端API] 返回数据库结果:`, response);
+        res.json(response);
         return;
       }
 
       // 4. 数据库中没有记录，调用AI API获取
-      console.log(`🤖 No existing definition found, fetching from AI for word: ${word}`);
+      console.log(`🤖 [后端API] 数据库无记录，调用AI获取: word="${word}", language="${language}"`);
       
       try {
+        console.log(`🤖 [后端API] 调用geminiService.getWordDefinition...`);
         const wordDefinition = await geminiService.getWordDefinition(word, '', language);
         
-        console.log(`✅ AI definition fetched for ${word}`);
+        console.log(`✅ [后端API] AI返回定义:`, wordDefinition);
 
         // 5. 返回AI获取的结果（格式与"添加生词"一致）
-        res.json({
+        const aiResponse = {
           success: true,
           data: {
             word,
@@ -624,21 +638,31 @@ router.post('/definition',
             partOfSpeech: wordDefinition.partOfSpeech,
             meanings: wordDefinition.meanings || []
           }
-        });
-      } catch (error) {
-        console.error(`❌ Failed to get AI definition for ${word}:`, error);
+        };
         
-        res.status(500).json({
+        console.log(`📤 [后端API] 返回AI结果:`, aiResponse);
+        res.json(aiResponse);
+      } catch (error) {
+        console.error(`❌ [后端API] AI调用失败:`, error);
+        
+        const errorResponse = {
           success: false,
           error: 'AI翻译服务暂时不可用，请稍后重试'
-        });
+        };
+        
+        console.log(`📤 [后端API] 返回错误响应:`, errorResponse);
+        res.status(500).json(errorResponse);
       }
     } catch (error) {
-      console.error('Get definition error:', error);
-      res.status(500).json({
+      console.error(`💥 [后端API] 外层异常捕获:`, error);
+      
+      const fatalErrorResponse = {
         success: false,
         error: '获取词汇定义失败'
-      });
+      };
+      
+      console.log(`📤 [后端API] 返回致命错误响应:`, fatalErrorResponse);
+      res.status(500).json(fatalErrorResponse);
     }
   }
 );
