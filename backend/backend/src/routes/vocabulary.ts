@@ -217,6 +217,29 @@ router.get('/review',
   }
 );
 
+// 简单测试端点 - 确认路由注册正常
+console.log('🔧 [路由注册] 注册 GET /vocabulary/test-simple 端点');
+router.get('/test-simple', (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    message: 'Vocabulary router working',
+    timestamp: new Date().toISOString(),
+    route: '/vocabulary/test-simple'
+  });
+});
+
+// 简单definition测试端点 - 无需认证
+console.log('🔧 [路由注册] 注册 POST /vocabulary/definition-test 端点 - 无需认证');
+router.post('/definition-test', (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    message: 'Definition route working',
+    requestBody: req.body,
+    timestamp: new Date().toISOString(),
+    route: '/vocabulary/definition-test'
+  });
+});
+
 // 获取词汇定义（用于翻译功能） - MOVED BEFORE PARAMETER ROUTES
 console.log('🔧 [路由注册] 注册 POST /vocabulary/definition 端点 - v2.0.1 - 修复路由顺序');
 router.post('/definition',
