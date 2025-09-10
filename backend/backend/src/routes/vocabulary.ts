@@ -740,6 +740,78 @@ router.get('/stats',
   }
 );
 
+// 获取词汇定义（用于翻译功能）
+router.post('/definition',
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      console.log(`📋 [翻译API] 收到词汇定义请求`);
+      
+      const { word, language = 'zh' } = req.body;
+      const userId = req.user!.userId;
+      
+      if (!word || typeof word !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: '请提供有效的单词'
+        });
+      }
+
+      console.log(`🔍 [翻译API] 处理词汇: word="${word}", language="${language}", user="${userId}"`);
+
+      // 1. 先查询数据库是否已有该单词的记录
+      const existingWord = await prisma.vocabularyItem.findFirst({
+        where: {
+          userId,
+          word: word.toLowerCase()
+        }
+      });
+
+      // 2. 如果数据库中有记录，直接返回
+      if (existingWord && existingWord.meanings) {
+        console.log(`✅ [翻译API] 数据库找到词汇: ${word}`);
+        
+        return res.json({
+          success: true,
+          data: {
+            word,
+            definition: existingWord.definition || '未找到释义',
+            phonetic: existingWord.phonetic,
+            partOfSpeech: existingWord.meanings[0]?.partOfSpeech || '',
+            meanings: existingWord.meanings || []
+          }
+        });
+      }
+
+      // 3. 数据库中没有记录，调用AI API获取
+      console.log(`🤖 [翻译API] 调用AI获取翻译: word="${word}"`);
+      
+      const wordDefinition = await geminiService.getWordDefinition(word, '', language);
+      
+      console.log(`✅ [翻译API] AI返回定义成功`);
+
+      // 4. 返回AI获取的结果
+      res.json({
+        success: true,
+        data: {
+          word,
+          definition: wordDefinition.definition || '未找到释义',
+          phonetic: wordDefinition.phonetic,
+          partOfSpeech: wordDefinition.partOfSpeech,
+          meanings: wordDefinition.meanings || []
+        }
+      });
+    } catch (error) {
+      console.error(`❌ [翻译API] 错误:`, error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'AI翻译服务暂时不可用，请稍后重试'
+      });
+    }
+  }
+);
+
 // 北京时间处理工具函数
 function getBeijingTime(): Date {
   const now = new Date();
