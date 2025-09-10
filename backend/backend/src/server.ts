@@ -183,6 +183,27 @@ app.get('/api/billing-test', (req, res) => {
   });
 });
 
+// 🔧 EMERGENCY: 内联vocabulary路由测试 - 绕过所有导入问题
+console.log('🚨 [紧急调试] 注册内联vocabulary测试路由');
+app.get('/api/vocab-emergency-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Emergency vocabulary route working - inline in server.ts',
+    timestamp: new Date().toISOString(),
+    route: '/api/vocab-emergency-test'
+  });
+});
+
+app.post('/api/vocab-emergency-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Emergency vocabulary POST working - inline in server.ts',
+    requestBody: req.body,
+    timestamp: new Date().toISOString(),
+    route: '/api/vocab-emergency-test'
+  });
+});
+
 // 更简单的测试路由
 app.get('/test-simple', (req, res) => {
   res.json({ message: 'Simple test works' });
