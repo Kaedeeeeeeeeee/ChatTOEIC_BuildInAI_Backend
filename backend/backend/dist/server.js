@@ -1032,7 +1032,7 @@ setInterval(async () => {
 var dashboard_stream_default = router2;
 
 // src/services/authEmailService.ts
-import React9 from "react";
+import React12 from "react";
 
 // src/services/emailService.ts
 import { Resend } from "resend";
@@ -1516,6 +1516,284 @@ setInterval(() => {
   passwordResetService.cleanupExpiredTokens();
 }, 10 * 60 * 1e3);
 
+// src/services/emailChangeService.ts
+var EmailChangeService = class {
+  requests = /* @__PURE__ */ new Map();
+  EXPIRY_MINUTES = 15;
+  MAX_REQUESTS_PER_USER = 3;
+  /**
+   * 生成6位数字验证码
+   */
+  generateVerificationCode() {
+    return Math.floor(1e5 + Math.random() * 9e5).toString();
+  }
+  /**
+   * 生成请求键
+   */
+  generateRequestKey(userId, newEmail) {
+    return `${userId}:${newEmail}`;
+  }
+  /**
+   * 创建邮箱变更请求
+   */
+  async createEmailChangeRequest(userId, oldEmail, newEmail, userAgent, ipAddress) {
+    try {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(newEmail)) {
+        return {
+          success: false,
+          error: "invalid_email_format"
+        };
+      }
+      if (oldEmail.toLowerCase() === newEmail.toLowerCase()) {
+        return {
+          success: false,
+          error: "same_email"
+        };
+      }
+      this.cleanupRequestsForUser(userId);
+      const activeRequests = Array.from(this.requests.values()).filter(
+        (req) => req.userId === userId && !req.verified && !req.cancelled && /* @__PURE__ */ new Date() < req.expiresAt
+      );
+      if (activeRequests.length >= this.MAX_REQUESTS_PER_USER) {
+        return {
+          success: false,
+          error: "too_many_requests"
+        };
+      }
+      const requestKey = this.generateRequestKey(userId, newEmail);
+      const existingRequest = this.requests.get(requestKey);
+      if (existingRequest && !existingRequest.verified && !existingRequest.cancelled && /* @__PURE__ */ new Date() < existingRequest.expiresAt) {
+        if (existingRequest.createdAt.getTime() > Date.now() - 5 * 60 * 1e3) {
+          return {
+            success: false,
+            error: "request_too_frequent"
+          };
+        }
+      }
+      const verificationCode = this.generateVerificationCode();
+      const changeRequest = {
+        userId,
+        oldEmail,
+        newEmail,
+        verificationCode,
+        expiresAt: new Date(Date.now() + this.EXPIRY_MINUTES * 60 * 1e3),
+        createdAt: /* @__PURE__ */ new Date(),
+        userAgent,
+        ipAddress,
+        verified: false,
+        cancelled: false
+      };
+      this.requests.set(requestKey, changeRequest);
+      console.log("\u{1F4E7} Email change request created:", {
+        userId,
+        oldEmail,
+        newEmail,
+        verificationCode: verificationCode.substring(0, 3) + "***",
+        expiresAt: changeRequest.expiresAt
+      });
+      return {
+        success: true,
+        verificationCode
+      };
+    } catch (error) {
+      console.error("\u274C Failed to create email change request:", error);
+      return {
+        success: false,
+        error: error.message || "unknown_error"
+      };
+    }
+  }
+  /**
+   * 验证邮箱变更验证码
+   */
+  async verifyEmailChangeCode(userId, newEmail, code) {
+    try {
+      const requestKey = this.generateRequestKey(userId, newEmail);
+      const request = this.requests.get(requestKey);
+      if (!request) {
+        return {
+          success: false,
+          error: "request_not_found"
+        };
+      }
+      if (/* @__PURE__ */ new Date() > request.expiresAt) {
+        this.requests.delete(requestKey);
+        return {
+          success: false,
+          error: "request_expired"
+        };
+      }
+      if (request.verified) {
+        return {
+          success: false,
+          error: "already_verified"
+        };
+      }
+      if (request.cancelled) {
+        return {
+          success: false,
+          error: "request_cancelled"
+        };
+      }
+      if (request.verificationCode !== code) {
+        return {
+          success: false,
+          error: "invalid_verification_code"
+        };
+      }
+      request.verified = true;
+      console.log("\u2705 Email change request verified:", {
+        userId,
+        oldEmail: request.oldEmail,
+        newEmail: request.newEmail
+      });
+      return {
+        success: true,
+        request
+      };
+    } catch (error) {
+      console.error("\u274C Email change verification error:", error);
+      return {
+        success: false,
+        error: "verification_error"
+      };
+    }
+  }
+  /**
+   * 取消邮箱变更请求
+   */
+  async cancelEmailChangeRequest(userId, newEmail) {
+    try {
+      let cancelledCount = 0;
+      if (newEmail) {
+        const requestKey = this.generateRequestKey(userId, newEmail);
+        const request = this.requests.get(requestKey);
+        if (request && !request.verified && !request.cancelled) {
+          request.cancelled = true;
+          cancelledCount = 1;
+        }
+      } else {
+        for (const request of this.requests.values()) {
+          if (request.userId === userId && !request.verified && !request.cancelled) {
+            request.cancelled = true;
+            cancelledCount++;
+          }
+        }
+      }
+      if (cancelledCount > 0) {
+        console.log(`\u{1F6AB} Email change request(s) cancelled:`, {
+          userId,
+          newEmail,
+          cancelledCount
+        });
+      }
+      return {
+        success: true,
+        cancelledCount
+      };
+    } catch (error) {
+      console.error("\u274C Failed to cancel email change request:", error);
+      return {
+        success: false,
+        cancelledCount: 0
+      };
+    }
+  }
+  /**
+   * 获取用户的邮箱变更请求状态
+   */
+  getUserEmailChangeRequests(userId) {
+    const now = /* @__PURE__ */ new Date();
+    const userRequests = Array.from(this.requests.values()).filter((req) => req.userId === userId);
+    const active = userRequests.filter(
+      (req) => !req.verified && !req.cancelled && now < req.expiresAt
+    );
+    return {
+      active,
+      total: userRequests.length
+    };
+  }
+  /**
+   * 检查邮箱是否已被其他用户请求使用
+   */
+  isEmailBeingUsed(newEmail, excludeUserId) {
+    const now = /* @__PURE__ */ new Date();
+    for (const request of this.requests.values()) {
+      if (request.newEmail.toLowerCase() === newEmail.toLowerCase() && request.userId !== excludeUserId && !request.cancelled && !request.verified && now < request.expiresAt) {
+        return true;
+      }
+    }
+    return false;
+  }
+  /**
+   * 清理指定用户的过期请求
+   */
+  cleanupRequestsForUser(userId) {
+    const now = /* @__PURE__ */ new Date();
+    let cleanedCount = 0;
+    for (const [key, request] of this.requests.entries()) {
+      if (request.userId === userId && (now > request.expiresAt || request.verified || request.cancelled)) {
+        this.requests.delete(key);
+        cleanedCount++;
+      }
+    }
+    if (cleanedCount > 0) {
+      console.log(`\u{1F9F9} Cleaned up ${cleanedCount} email change requests for user: ${userId}`);
+    }
+    return cleanedCount;
+  }
+  /**
+   * 清理所有过期的请求
+   */
+  async cleanupExpiredRequests() {
+    const now = /* @__PURE__ */ new Date();
+    let cleanedCount = 0;
+    for (const [key, request] of this.requests.entries()) {
+      if (now > request.expiresAt || request.verified || request.cancelled) {
+        this.requests.delete(key);
+        cleanedCount++;
+      }
+    }
+    if (cleanedCount > 0) {
+      console.log(`\u{1F9F9} Cleaned up ${cleanedCount} expired email change requests`);
+    }
+    return cleanedCount;
+  }
+  /**
+   * 获取邮箱变更请求统计信息
+   */
+  getRequestStats() {
+    const now = /* @__PURE__ */ new Date();
+    let active = 0;
+    let expired = 0;
+    let verified = 0;
+    let cancelled = 0;
+    for (const request of this.requests.values()) {
+      if (request.verified) {
+        verified++;
+      } else if (request.cancelled) {
+        cancelled++;
+      } else if (now > request.expiresAt) {
+        expired++;
+      } else {
+        active++;
+      }
+    }
+    return {
+      total: this.requests.size,
+      active,
+      expired,
+      verified,
+      cancelled
+    };
+  }
+};
+var emailChangeService = new EmailChangeService();
+setInterval(() => {
+  emailChangeService.cleanupExpiredRequests();
+}, 10 * 60 * 1e3);
+
 // src/emails/templates/auth/VerificationEmail.tsx
 import React6 from "react";
 import { Text as Text4, Section as Section5 } from "@react-email/components";
@@ -1623,6 +1901,50 @@ function PasswordResetSuccessEmail({
   return /* @__PURE__ */ React8.createElement(Layout, { preview: `\u5BC6\u7801\u91CD\u7F6E\u6210\u529F - ${userName}` }, /* @__PURE__ */ React8.createElement(Section7, null, /* @__PURE__ */ React8.createElement(Text6, { className: "text-2xl font-bold text-green-600 mb-4 m-0" }, "\u2705 \u5BC6\u7801\u91CD\u7F6E\u6210\u529F"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u4EB2\u7231\u7684 ", /* @__PURE__ */ React8.createElement("span", { className: "font-semibold text-blue-600" }, userName), "\uFF0C"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u60A8\u7684ChatTOEIC\u8D26\u53F7\u5BC6\u7801\u5DF2\u6210\u529F\u91CD\u7F6E\u3002\u73B0\u5728\u60A8\u53EF\u4EE5\u4F7F\u7528\u65B0\u5BC6\u7801\u767B\u5F55\u8D26\u6237\u4E86\u3002"), /* @__PURE__ */ React8.createElement(Section7, { className: "bg-green-50 border border-green-200 rounded p-4 mb-6" }, /* @__PURE__ */ React8.createElement(Text6, { className: "text-green-800 text-sm font-semibold m-0" }, "\u{1F389} \u91CD\u7F6E\u8BE6\u60C5\uFF1A"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-green-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u91CD\u7F6E\u65F6\u95F4\uFF1A", resetTime), ipAddress && /* @__PURE__ */ React8.createElement(Text6, { className: "text-green-700 text-sm my-1 m-0" }, "\u2022 \u64CD\u4F5CIP\uFF1A", ipAddress), userAgent && /* @__PURE__ */ React8.createElement(Text6, { className: "text-green-700 text-sm mt-1 m-0" }, "\u2022 \u8BBE\u5907\u4FE1\u606F\uFF1A", userAgent)), /* @__PURE__ */ React8.createElement(Section7, { className: "text-center my-8" }, /* @__PURE__ */ React8.createElement(Button, { href: loginUrl }, "\u7ACB\u5373\u767B\u5F55")), /* @__PURE__ */ React8.createElement(Section7, { className: "bg-blue-50 border-l-4 border-blue-400 p-4 rounded mb-6" }, /* @__PURE__ */ React8.createElement(Text6, { className: "text-blue-800 text-sm font-semibold m-0" }, "\u{1F510} \u8D26\u6237\u5B89\u5168\u63D0\u9192\uFF1A"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-blue-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u8BF7\u59A5\u5584\u4FDD\u7BA1\u60A8\u7684\u65B0\u5BC6\u7801"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u4E0D\u8981\u4E0E\u4ED6\u4EBA\u5206\u4EAB\u767B\u5F55\u4FE1\u606F"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u5B9A\u671F\u68C0\u67E5\u8D26\u6237\u6D3B\u52A8\u8BB0\u5F55"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-blue-700 text-sm mt-1 m-0" }, "\u2022 \u5982\u53D1\u73B0\u5F02\u5E38\u6D3B\u52A8\uFF0C\u8BF7\u7ACB\u5373\u8054\u7CFB\u6211\u4EEC")), /* @__PURE__ */ React8.createElement(Section7, { className: "bg-red-50 border border-red-200 rounded p-4 mb-6" }, /* @__PURE__ */ React8.createElement(Text6, { className: "text-red-800 text-sm font-semibold m-0" }, "\u26A0\uFE0F \u5982\u679C\u4E0D\u662F\u60A8\u672C\u4EBA\u64CD\u4F5C\uFF1A"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-red-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u8BF7\u7ACB\u5373\u8054\u7CFB\u6211\u4EEC\uFF1Asupport@chattoeic.com"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-red-700 text-sm my-1 m-0" }, "\u2022 \u6211\u4EEC\u5C06\u534F\u52A9\u60A8\u4FDD\u62A4\u8D26\u6237\u5B89\u5168"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-red-700 text-sm mt-1 m-0" }, "\u2022 \u5EFA\u8BAE\u542F\u7528\u53CC\u91CD\u9A8C\u8BC1\u4FDD\u62A4")), /* @__PURE__ */ React8.createElement(Text6, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u611F\u8C22\u60A8\u7EE7\u7EED\u4F7F\u7528ChatTOEIC\uFF01\u795D\u60A8\u5B66\u4E60\u6109\u5FEB\uFF01"), /* @__PURE__ */ React8.createElement(Text6, { className: "text-gray-600 text-sm mt-6 m-0" }, "\u6709\u4EFB\u4F55\u95EE\u9898\uFF0C\u8BF7\u968F\u65F6\u8054\u7CFB\u6211\u4EEC\uFF1A", /* @__PURE__ */ React8.createElement("a", { href: "mailto:support@chattoeic.com", className: "text-blue-600 underline ml-1" }, "support@chattoeic.com"))));
 }
 
+// src/emails/templates/auth/EmailChangeConfirmationEmail.tsx
+import React9 from "react";
+import { Text as Text7, Section as Section8 } from "@react-email/components";
+function EmailChangeConfirmationEmail({
+  userName,
+  oldEmail,
+  newEmail,
+  verificationCode,
+  confirmUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}/confirm-email-change?code=${verificationCode}&newEmail=${encodeURIComponent(newEmail)}`,
+  expiresInMinutes = 15
+}) {
+  return /* @__PURE__ */ React9.createElement(Layout, { preview: `\u786E\u8BA4\u60A8\u7684\u65B0\u90AE\u7BB1\u5730\u5740 - ${userName}` }, /* @__PURE__ */ React9.createElement(Section8, null, /* @__PURE__ */ React9.createElement(Text7, { className: "text-2xl font-bold text-blue-600 mb-4 m-0" }, "\u{1F4E7} \u786E\u8BA4\u60A8\u7684\u65B0\u90AE\u7BB1\u5730\u5740"), /* @__PURE__ */ React9.createElement(Text7, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u4EB2\u7231\u7684 ", /* @__PURE__ */ React9.createElement("span", { className: "font-semibold text-blue-600" }, userName), "\uFF0C"), /* @__PURE__ */ React9.createElement(Text7, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u60A8\u6B63\u5728\u5C06ChatTOEIC\u8D26\u53F7\u7684\u90AE\u7BB1\u5730\u5740\u4ECE ", /* @__PURE__ */ React9.createElement("span", { className: "font-mono bg-gray-100 px-2 py-1 rounded" }, oldEmail), "\u66F4\u6539\u4E3A ", /* @__PURE__ */ React9.createElement("span", { className: "font-mono bg-blue-100 px-2 py-1 rounded text-blue-700" }, newEmail)), /* @__PURE__ */ React9.createElement(Text7, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u8BF7\u4F7F\u7528\u4EE5\u4E0B\u9A8C\u8BC1\u7801\u6765\u786E\u8BA4\u8FD9\u4E2A\u65B0\u90AE\u7BB1\u5730\u5740\u5C5E\u4E8E\u60A8\uFF1A"), /* @__PURE__ */ React9.createElement(VerificationCode, { code: verificationCode, expiresInMinutes }), /* @__PURE__ */ React9.createElement(Text7, { className: "text-gray-700 text-base leading-6 mb-6 m-0" }, "\u60A8\u4E5F\u53EF\u4EE5\u70B9\u51FB\u4E0B\u65B9\u6309\u94AE\u76F4\u63A5\u5B8C\u6210\u9A8C\u8BC1\uFF1A"), /* @__PURE__ */ React9.createElement(Section8, { className: "text-center mb-6" }, /* @__PURE__ */ React9.createElement(Button, { href: confirmUrl }, "\u786E\u8BA4\u90AE\u7BB1\u53D8\u66F4")), /* @__PURE__ */ React9.createElement(Section8, { className: "bg-amber-50 border-l-4 border-amber-400 p-4 rounded mb-6" }, /* @__PURE__ */ React9.createElement(Text7, { className: "text-amber-800 text-sm font-semibold m-0" }, "\u26A0\uFE0F \u91CD\u8981\u63D0\u9192\uFF1A"), /* @__PURE__ */ React9.createElement(Text7, { className: "text-amber-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u786E\u8BA4\u540E\uFF0C\u60A8\u5C06\u4F7F\u7528\u65B0\u90AE\u7BB1 ", newEmail, " \u767B\u5F55"), /* @__PURE__ */ React9.createElement(Text7, { className: "text-amber-700 text-sm my-1 m-0" }, "\u2022 \u65E7\u90AE\u7BB1 ", oldEmail, " \u5C06\u4E0D\u518D\u80FD\u7528\u4E8E\u767B\u5F55"), /* @__PURE__ */ React9.createElement(Text7, { className: "text-amber-700 text-sm my-1 m-0" }, "\u2022 \u6240\u6709\u90AE\u4EF6\u901A\u77E5\u5C06\u53D1\u9001\u5230\u65B0\u90AE\u7BB1"), /* @__PURE__ */ React9.createElement(Text7, { className: "text-amber-700 text-sm mt-1 m-0" }, "\u2022 \u6B64\u64CD\u4F5C\u5B8C\u6210\u540E\u65E0\u6CD5\u64A4\u9500")), /* @__PURE__ */ React9.createElement(Section8, { className: "bg-blue-50 border border-blue-200 rounded p-4 mb-6" }, /* @__PURE__ */ React9.createElement(Text7, { className: "text-blue-800 text-sm font-semibold m-0" }, "\u{1F510} \u5B89\u5168\u63D0\u793A\uFF1A"), /* @__PURE__ */ React9.createElement(Text7, { className: "text-blue-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u9A8C\u8BC1\u7801\u5C06\u5728 ", expiresInMinutes, " \u5206\u949F\u540E\u5931\u6548"), /* @__PURE__ */ React9.createElement(Text7, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u8BF7\u4E0D\u8981\u5C06\u9A8C\u8BC1\u7801\u5206\u4EAB\u7ED9\u4ED6\u4EBA"), /* @__PURE__ */ React9.createElement(Text7, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u5982\u679C\u4E0D\u662F\u60A8\u672C\u4EBA\u64CD\u4F5C\uFF0C\u8BF7\u7ACB\u5373\u8054\u7CFB\u6211\u4EEC"), /* @__PURE__ */ React9.createElement(Text7, { className: "text-blue-700 text-sm mt-1 m-0" }, "\u2022 \u5EFA\u8BAE\u4F7F\u7528\u5B89\u5168\u7684\u90AE\u7BB1\u5730\u5740")), /* @__PURE__ */ React9.createElement(Text7, { className: "text-gray-600 text-sm mt-6 m-0" }, "\u5982\u679C\u60A8\u6CA1\u6709\u7533\u8BF7\u66F4\u6539\u90AE\u7BB1\u5730\u5740\uFF0C\u8BF7\u5FFD\u7565\u6B64\u90AE\u4EF6\u3002\u60A8\u7684\u8D26\u6237\u4FE1\u606F\u4E0D\u4F1A\u88AB\u66F4\u6539\u3002"), /* @__PURE__ */ React9.createElement(Text7, { className: "text-gray-600 text-sm mt-4 m-0" }, "\u6709\u4EFB\u4F55\u95EE\u9898\uFF0C\u8BF7\u8054\u7CFB\u6211\u4EEC\uFF1A", /* @__PURE__ */ React9.createElement("a", { href: "mailto:support@chattoeic.com", className: "text-blue-600 underline ml-1" }, "support@chattoeic.com"))));
+}
+
+// src/emails/templates/auth/EmailChangeNotificationEmail.tsx
+import React10 from "react";
+import { Text as Text8, Section as Section9 } from "@react-email/components";
+function EmailChangeNotificationEmail({
+  userName,
+  oldEmail,
+  newEmail,
+  changeTime,
+  userAgent,
+  ipAddress,
+  cancelUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}/cancel-email-change`
+}) {
+  return /* @__PURE__ */ React10.createElement(Layout, { preview: `\u90AE\u7BB1\u53D8\u66F4\u901A\u77E5 - ${userName}` }, /* @__PURE__ */ React10.createElement(Section9, null, /* @__PURE__ */ React10.createElement(Text8, { className: "text-2xl font-bold text-orange-600 mb-4 m-0" }, "\u{1F514} \u90AE\u7BB1\u53D8\u66F4\u901A\u77E5"), /* @__PURE__ */ React10.createElement(Text8, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u4EB2\u7231\u7684 ", /* @__PURE__ */ React10.createElement("span", { className: "font-semibold text-blue-600" }, userName), "\uFF0C"), /* @__PURE__ */ React10.createElement(Text8, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u6211\u4EEC\u68C0\u6D4B\u5230\u6709\u4EBA\u6B63\u5728\u5C1D\u8BD5\u5C06\u60A8\u7684ChatTOEIC\u8D26\u53F7\u90AE\u7BB1\u4ECE", /* @__PURE__ */ React10.createElement("span", { className: "font-mono bg-gray-100 px-2 py-1 rounded mx-1" }, oldEmail), "\u66F4\u6539\u4E3A", /* @__PURE__ */ React10.createElement("span", { className: "font-mono bg-orange-100 px-2 py-1 rounded mx-1 text-orange-700" }, newEmail)), /* @__PURE__ */ React10.createElement(Section9, { className: "bg-orange-50 border border-orange-200 rounded p-4 mb-6" }, /* @__PURE__ */ React10.createElement(Text8, { className: "text-orange-800 text-sm font-semibold m-0" }, "\u{1F4CD} \u64CD\u4F5C\u8BE6\u60C5\uFF1A"), /* @__PURE__ */ React10.createElement(Text8, { className: "text-orange-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u64CD\u4F5C\u65F6\u95F4\uFF1A", changeTime), ipAddress && /* @__PURE__ */ React10.createElement(Text8, { className: "text-orange-700 text-sm my-1 m-0" }, "\u2022 \u64CD\u4F5CIP\uFF1A", ipAddress), userAgent && /* @__PURE__ */ React10.createElement(Text8, { className: "text-orange-700 text-sm mt-1 m-0" }, "\u2022 \u8BBE\u5907\u4FE1\u606F\uFF1A", userAgent)), /* @__PURE__ */ React10.createElement(Text8, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, /* @__PURE__ */ React10.createElement("strong", null, "\u5982\u679C\u8FD9\u662F\u60A8\u672C\u4EBA\u64CD\u4F5C\uFF1A")), /* @__PURE__ */ React10.createElement(Text8, { className: "text-gray-700 text-base leading-6 mb-6 m-0" }, "\u8BF7\u524D\u5F80\u65B0\u90AE\u7BB1 ", newEmail, " \u67E5\u6536\u786E\u8BA4\u90AE\u4EF6\uFF0C\u5E76\u6309\u7167\u90AE\u4EF6\u4E2D\u7684\u6307\u793A\u5B8C\u6210\u90AE\u7BB1\u53D8\u66F4\u3002"), /* @__PURE__ */ React10.createElement(Section9, { className: "bg-red-50 border-l-4 border-red-400 p-4 rounded mb-6" }, /* @__PURE__ */ React10.createElement(Text8, { className: "text-red-800 text-sm font-semibold m-0" }, "\u{1F6A8} \u5982\u679C\u4E0D\u662F\u60A8\u672C\u4EBA\u64CD\u4F5C\uFF1A"), /* @__PURE__ */ React10.createElement(Text8, { className: "text-red-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u60A8\u7684\u8D26\u6237\u53EF\u80FD\u5B58\u5728\u5B89\u5168\u98CE\u9669"), /* @__PURE__ */ React10.createElement(Text8, { className: "text-red-700 text-sm my-1 m-0" }, "\u2022 \u8BF7\u7ACB\u5373\u70B9\u51FB\u4E0B\u65B9\u6309\u94AE\u53D6\u6D88\u6B64\u6B21\u53D8\u66F4"), /* @__PURE__ */ React10.createElement(Text8, { className: "text-red-700 text-sm my-1 m-0" }, "\u2022 \u5EFA\u8BAE\u7ACB\u5373\u66F4\u6539\u60A8\u7684\u5BC6\u7801"), /* @__PURE__ */ React10.createElement(Text8, { className: "text-red-700 text-sm mt-1 m-0" }, "\u2022 \u8054\u7CFB\u6211\u4EEC\u8FDB\u884C\u5B89\u5168\u68C0\u67E5")), /* @__PURE__ */ React10.createElement(Section9, { className: "text-center mb-6" }, /* @__PURE__ */ React10.createElement(Button, { href: cancelUrl, variant: "secondary" }, "\u53D6\u6D88\u90AE\u7BB1\u53D8\u66F4")), /* @__PURE__ */ React10.createElement(Section9, { className: "bg-blue-50 border border-blue-200 rounded p-4 mb-6" }, /* @__PURE__ */ React10.createElement(Text8, { className: "text-blue-800 text-sm font-semibold m-0" }, "\u{1F510} \u5B89\u5168\u5EFA\u8BAE\uFF1A"), /* @__PURE__ */ React10.createElement(Text8, { className: "text-blue-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u5B9A\u671F\u66F4\u6362\u5BC6\u7801\uFF0C\u786E\u4FDD\u5BC6\u7801\u5F3A\u5EA6"), /* @__PURE__ */ React10.createElement(Text8, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u4E0D\u8981\u5728\u4E0D\u5B89\u5168\u7684\u7F51\u7EDC\u73AF\u5883\u4E0B\u767B\u5F55"), /* @__PURE__ */ React10.createElement(Text8, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u5F00\u542F\u53CC\u91CD\u9A8C\u8BC1\u4FDD\u62A4\uFF08\u5373\u5C06\u63A8\u51FA\uFF09"), /* @__PURE__ */ React10.createElement(Text8, { className: "text-blue-700 text-sm mt-1 m-0" }, "\u2022 \u53CA\u65F6\u5173\u6CE8\u8D26\u6237\u5B89\u5168\u901A\u77E5")), /* @__PURE__ */ React10.createElement(Text8, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u5982\u679C\u60A8\u6709\u4EFB\u4F55\u7591\u95EE\u6216\u9700\u8981\u5E2E\u52A9\uFF0C\u8BF7\u968F\u65F6\u8054\u7CFB\u6211\u4EEC\u7684\u652F\u6301\u56E2\u961F\u3002"), /* @__PURE__ */ React10.createElement(Text8, { className: "text-gray-600 text-sm mt-6 m-0" }, "\u90AE\u7BB1\u53D8\u66F4\u8BF7\u6C42\u5C06\u572815\u5206\u949F\u540E\u81EA\u52A8\u8FC7\u671F\u3002\u5982\u9700\u53D6\u6D88\uFF0C\u8BF7\u53CA\u65F6\u70B9\u51FB\u4E0A\u65B9\u6309\u94AE\u3002"), /* @__PURE__ */ React10.createElement(Text8, { className: "text-gray-600 text-sm mt-4 m-0" }, "ChatTOEIC \u5B89\u5168\u56E2\u961F", /* @__PURE__ */ React10.createElement("br", null), /* @__PURE__ */ React10.createElement("a", { href: "mailto:support@chattoeic.com", className: "text-blue-600 underline" }, "support@chattoeic.com"))));
+}
+
+// src/emails/templates/auth/EmailChangeSuccessEmail.tsx
+import React11 from "react";
+import { Text as Text9, Section as Section10 } from "@react-email/components";
+function EmailChangeSuccessEmail({
+  userName,
+  oldEmail,
+  newEmail,
+  changeTime,
+  loginUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}/login`,
+  userAgent,
+  ipAddress
+}) {
+  return /* @__PURE__ */ React11.createElement(Layout, { preview: `\u90AE\u7BB1\u53D8\u66F4\u6210\u529F - ${userName}` }, /* @__PURE__ */ React11.createElement(Section10, null, /* @__PURE__ */ React11.createElement(Text9, { className: "text-2xl font-bold text-green-600 mb-4 m-0" }, "\u2705 \u90AE\u7BB1\u53D8\u66F4\u6210\u529F"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u4EB2\u7231\u7684 ", /* @__PURE__ */ React11.createElement("span", { className: "font-semibold text-blue-600" }, userName), "\uFF0C"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u606D\u559C\uFF01\u60A8\u7684ChatTOEIC\u8D26\u53F7\u90AE\u7BB1\u5730\u5740\u5DF2\u6210\u529F\u4ECE", /* @__PURE__ */ React11.createElement("span", { className: "font-mono bg-gray-100 px-2 py-1 rounded mx-1" }, oldEmail), "\u66F4\u6539\u4E3A", /* @__PURE__ */ React11.createElement("span", { className: "font-mono bg-green-100 px-2 py-1 rounded mx-1 text-green-700" }, newEmail)), /* @__PURE__ */ React11.createElement(Section10, { className: "bg-green-50 border border-green-200 rounded p-4 mb-6" }, /* @__PURE__ */ React11.createElement(Text9, { className: "text-green-800 text-sm font-semibold m-0" }, "\u{1F389} \u53D8\u66F4\u8BE6\u60C5\uFF1A"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-green-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u53D8\u66F4\u65F6\u95F4\uFF1A", changeTime), /* @__PURE__ */ React11.createElement(Text9, { className: "text-green-700 text-sm my-1 m-0" }, "\u2022 \u65B0\u90AE\u7BB1\uFF1A", newEmail), /* @__PURE__ */ React11.createElement(Text9, { className: "text-green-700 text-sm my-1 m-0" }, "\u2022 \u65E7\u90AE\u7BB1\uFF1A", oldEmail, "\uFF08\u5DF2\u5931\u6548\uFF09"), ipAddress && /* @__PURE__ */ React11.createElement(Text9, { className: "text-green-700 text-sm my-1 m-0" }, "\u2022 \u64CD\u4F5CIP\uFF1A", ipAddress), userAgent && /* @__PURE__ */ React11.createElement(Text9, { className: "text-green-700 text-sm mt-1 m-0" }, "\u2022 \u8BBE\u5907\u4FE1\u606F\uFF1A", userAgent)), /* @__PURE__ */ React11.createElement(Text9, { className: "text-gray-700 text-base leading-6 mb-6 m-0" }, "\u4ECE\u73B0\u5728\u5F00\u59CB\uFF0C\u60A8\u9700\u8981\u4F7F\u7528\u65B0\u90AE\u7BB1\u5730\u5740 ", /* @__PURE__ */ React11.createElement("strong", null, newEmail), " \u6765\u767B\u5F55\u60A8\u7684ChatTOEIC\u8D26\u53F7\u3002"), /* @__PURE__ */ React11.createElement(Section10, { className: "text-center mb-6" }, /* @__PURE__ */ React11.createElement(Button, { href: loginUrl }, "\u7ACB\u5373\u767B\u5F55")), /* @__PURE__ */ React11.createElement(Section10, { className: "bg-blue-50 border-l-4 border-blue-400 p-4 rounded mb-6" }, /* @__PURE__ */ React11.createElement(Text9, { className: "text-blue-800 text-sm font-semibold m-0" }, "\u{1F4DD} \u91CD\u8981\u53D8\u66F4\uFF1A"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-blue-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u767B\u5F55\u90AE\u7BB1\uFF1A\u73B0\u5728\u4F7F\u7528 ", newEmail), /* @__PURE__ */ React11.createElement(Text9, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u90AE\u4EF6\u901A\u77E5\uFF1A\u5C06\u53D1\u9001\u5230\u65B0\u90AE\u7BB1\u5730\u5740"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u8D26\u6237\u6062\u590D\uFF1A\u4F7F\u7528\u65B0\u90AE\u7BB1\u8FDB\u884C\u5BC6\u7801\u91CD\u7F6E"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-blue-700 text-sm mt-1 m-0" }, "\u2022 \u65E7\u90AE\u7BB1\uFF1A", oldEmail, " \u4E0D\u518D\u4E0E\u6B64\u8D26\u53F7\u5173\u8054")), /* @__PURE__ */ React11.createElement(Section10, { className: "bg-amber-50 border border-amber-200 rounded p-4 mb-6" }, /* @__PURE__ */ React11.createElement(Text9, { className: "text-amber-800 text-sm font-semibold m-0" }, "\u{1F510} \u5B89\u5168\u63D0\u9192\uFF1A"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-amber-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u8BF7\u786E\u4FDD\u65B0\u90AE\u7BB1\u8D26\u53F7\u7684\u5B89\u5168\u6027"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-amber-700 text-sm my-1 m-0" }, "\u2022 \u5B9A\u671F\u68C0\u67E5\u8D26\u6237\u6D3B\u52A8\u8BB0\u5F55"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-amber-700 text-sm my-1 m-0" }, "\u2022 \u5982\u53D1\u73B0\u5F02\u5E38\u6D3B\u52A8\uFF0C\u7ACB\u5373\u8054\u7CFB\u6211\u4EEC"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-amber-700 text-sm mt-1 m-0" }, "\u2022 \u5EFA\u8BAE\u4F7F\u7528\u5F3A\u5BC6\u7801\u4FDD\u62A4\u90AE\u7BB1\u8D26\u53F7")), /* @__PURE__ */ React11.createElement(Section10, { className: "bg-red-50 border border-red-200 rounded p-4 mb-6" }, /* @__PURE__ */ React11.createElement(Text9, { className: "text-red-800 text-sm font-semibold m-0" }, "\u26A0\uFE0F \u5982\u679C\u4E0D\u662F\u60A8\u672C\u4EBA\u64CD\u4F5C\uFF1A"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-red-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u7ACB\u5373\u8054\u7CFB\u6211\u4EEC\uFF1Asupport@chattoeic.com"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-red-700 text-sm my-1 m-0" }, "\u2022 \u6211\u4EEC\u5C06\u534F\u52A9\u60A8\u6062\u590D\u8D26\u6237\u5B89\u5168"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-red-700 text-sm mt-1 m-0" }, "\u2022 \u5EFA\u8BAE\u7ACB\u5373\u66F4\u6539\u5BC6\u7801\u5E76\u542F\u7528\u989D\u5916\u5B89\u5168\u63AA\u65BD")), /* @__PURE__ */ React11.createElement(Text9, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u611F\u8C22\u60A8\u7EE7\u7EED\u4F7F\u7528ChatTOEIC\uFF01\u5982\u679C\u60A8\u5728\u4F7F\u7528\u8FC7\u7A0B\u4E2D\u9047\u5230\u4EFB\u4F55\u95EE\u9898\uFF0C\u6211\u4EEC\u968F\u65F6\u4E3A\u60A8\u63D0\u4F9B\u5E2E\u52A9\u3002"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-gray-600 text-sm mt-6 m-0" }, "\u795D\u60A8\u5B66\u4E60\u6109\u5FEB\uFF01", /* @__PURE__ */ React11.createElement("br", null), "ChatTOEIC \u56E2\u961F"), /* @__PURE__ */ React11.createElement(Text9, { className: "text-gray-600 text-sm mt-4 m-0" }, "\u6709\u4EFB\u4F55\u95EE\u9898\uFF0C\u8BF7\u8054\u7CFB\u6211\u4EEC\uFF1A", /* @__PURE__ */ React11.createElement("a", { href: "mailto:support@chattoeic.com", className: "text-blue-600 underline ml-1" }, "support@chattoeic.com"))));
+}
+
 // src/services/authEmailService.ts
 var AuthEmailService = class {
   /**
@@ -1642,7 +1964,7 @@ var AuthEmailService = class {
         expiresInMinutes: 10
       });
       const verificationUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}/verify?code=${verificationCode}&email=${encodeURIComponent(email)}`;
-      const emailTemplate = React9.createElement(VerificationEmail, {
+      const emailTemplate = React12.createElement(VerificationEmail, {
         userName,
         verificationCode,
         verificationUrl
@@ -1758,7 +2080,7 @@ var AuthEmailService = class {
       const result = await emailService.sendEmail({
         to: email,
         subject: "\u{1F389} \u6B22\u8FCE\u6765\u5230ChatTOEIC\uFF01",
-        template: React9.createElement("div", {
+        template: React12.createElement("div", {
           dangerouslySetInnerHTML: { __html: html }
         })
       });
@@ -1809,7 +2131,7 @@ var AuthEmailService = class {
         ipAddress
       );
       const resetUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
-      const emailTemplate = React9.createElement(PasswordResetEmail, {
+      const emailTemplate = React12.createElement(PasswordResetEmail, {
         userName,
         resetToken,
         resetUrl,
@@ -1886,7 +2208,7 @@ var AuthEmailService = class {
         timeZone: "Asia/Shanghai"
       });
       await passwordResetService.markTokenAsUsed(token);
-      const emailTemplate = React9.createElement(PasswordResetSuccessEmail, {
+      const emailTemplate = React12.createElement(PasswordResetSuccessEmail, {
         userName,
         resetTime,
         userAgent,
@@ -1929,6 +2251,223 @@ var AuthEmailService = class {
    */
   getResetTokenStats() {
     return passwordResetService.getTokenStats();
+  }
+  /**
+   * 发送邮箱变更确认邮件（发送到新邮箱）
+   */
+  async sendEmailChangeConfirmationEmail(userId, oldEmail, newEmail, userName, userAgent, ipAddress) {
+    try {
+      if (!emailService.validateEmail(newEmail)) {
+        return {
+          success: false,
+          error: "invalid_email_format"
+        };
+      }
+      const changeResult = await emailChangeService.createEmailChangeRequest(
+        userId,
+        oldEmail,
+        newEmail,
+        userAgent,
+        ipAddress
+      );
+      if (!changeResult.success) {
+        return {
+          success: false,
+          error: changeResult.error
+        };
+      }
+      const confirmationTemplate = React12.createElement(EmailChangeConfirmationEmail, {
+        userName,
+        oldEmail,
+        newEmail,
+        verificationCode: changeResult.verificationCode,
+        expiresInMinutes: 15
+      });
+      const result = await emailService.sendEmail({
+        to: newEmail,
+        subject: "\u786E\u8BA4\u60A8\u7684\u65B0\u90AE\u7BB1\u5730\u5740 - ChatTOEIC",
+        template: confirmationTemplate
+      });
+      if (result.success) {
+        console.log("\u{1F4E7} Email change confirmation sent:", {
+          userId,
+          oldEmail,
+          newEmail,
+          emailId: result.id
+        });
+        return {
+          success: true,
+          verificationCode: changeResult.verificationCode,
+          emailId: result.id
+        };
+      } else {
+        await emailChangeService.cancelEmailChangeRequest(userId, newEmail);
+        return {
+          success: false,
+          error: result.error || "email_send_failed"
+        };
+      }
+    } catch (error) {
+      console.error("\u274C Failed to send email change confirmation:", error);
+      return {
+        success: false,
+        error: error.message || "unknown_error"
+      };
+    }
+  }
+  /**
+   * 发送邮箱变更通知邮件（发送到旧邮箱）
+   */
+  async sendEmailChangeNotificationEmail(oldEmail, newEmail, userName, userAgent, ipAddress) {
+    try {
+      const changeTime = (/* @__PURE__ */ new Date()).toLocaleString("zh-CN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Shanghai"
+      });
+      const notificationTemplate = React12.createElement(EmailChangeNotificationEmail, {
+        userName,
+        oldEmail,
+        newEmail,
+        changeTime,
+        userAgent,
+        ipAddress
+      });
+      const result = await emailService.sendEmail({
+        to: oldEmail,
+        subject: "\u90AE\u7BB1\u53D8\u66F4\u901A\u77E5 - ChatTOEIC",
+        template: notificationTemplate
+      });
+      if (result.success) {
+        console.log("\u{1F4E7} Email change notification sent:", {
+          oldEmail,
+          newEmail,
+          emailId: result.id
+        });
+      }
+      return {
+        success: result.success,
+        emailId: result.id,
+        error: result.error
+      };
+    } catch (error) {
+      console.error("\u274C Failed to send email change notification:", error);
+      return {
+        success: false,
+        error: error.message || "unknown_error"
+      };
+    }
+  }
+  /**
+   * 验证邮箱变更验证码
+   */
+  async verifyEmailChangeCode(userId, newEmail, code) {
+    try {
+      const result = await emailChangeService.verifyEmailChangeCode(userId, newEmail, code);
+      if (result.success) {
+        console.log("\u2705 Email change verified:", {
+          userId,
+          oldEmail: result.request.oldEmail,
+          newEmail: result.request.newEmail
+        });
+        return {
+          success: true,
+          oldEmail: result.request.oldEmail,
+          newEmail: result.request.newEmail
+        };
+      }
+      return {
+        success: false,
+        error: result.error
+      };
+    } catch (error) {
+      console.error("\u274C Email change verification error:", error);
+      return {
+        success: false,
+        error: "verification_error"
+      };
+    }
+  }
+  /**
+   * 发送邮箱变更成功邮件（发送到新邮箱）
+   */
+  async sendEmailChangeSuccessEmail(oldEmail, newEmail, userName, userAgent, ipAddress) {
+    try {
+      const changeTime = (/* @__PURE__ */ new Date()).toLocaleString("zh-CN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Shanghai"
+      });
+      const successTemplate = React12.createElement(EmailChangeSuccessEmail, {
+        userName,
+        oldEmail,
+        newEmail,
+        changeTime,
+        userAgent,
+        ipAddress
+      });
+      const result = await emailService.sendEmail({
+        to: newEmail,
+        subject: "\u90AE\u7BB1\u53D8\u66F4\u6210\u529F - ChatTOEIC",
+        template: successTemplate
+      });
+      if (result.success) {
+        console.log("\u{1F4E7} Email change success notification sent:", {
+          oldEmail,
+          newEmail,
+          emailId: result.id
+        });
+      }
+      return {
+        success: result.success,
+        emailId: result.id,
+        error: result.error
+      };
+    } catch (error) {
+      console.error("\u274C Failed to send email change success notification:", error);
+      return {
+        success: false,
+        error: error.message || "unknown_error"
+      };
+    }
+  }
+  /**
+   * 取消邮箱变更请求
+   */
+  async cancelEmailChangeRequest(userId, newEmail) {
+    try {
+      return await emailChangeService.cancelEmailChangeRequest(userId, newEmail);
+    } catch (error) {
+      console.error("\u274C Failed to cancel email change request:", error);
+      return {
+        success: false,
+        cancelledCount: 0
+      };
+    }
+  }
+  /**
+   * 获取用户的邮箱变更请求状态
+   */
+  getUserEmailChangeStatus(userId) {
+    return emailChangeService.getUserEmailChangeRequests(userId);
+  }
+  /**
+   * 检查邮箱是否已被其他用户请求使用
+   */
+  isEmailBeingUsed(newEmail, excludeUserId) {
+    return emailChangeService.isEmailBeingUsed(newEmail, excludeUserId);
+  }
+  /**
+   * 获取邮箱变更请求统计信息
+   */
+  getEmailChangeStats() {
+    return emailChangeService.getRequestStats();
   }
 };
 var authEmailService = new AuthEmailService();
@@ -2982,6 +3521,272 @@ router3.get("/password-reset-status", authRateLimit, async (req, res) => {
     res.status(500).json({
       success: false,
       error: "\u67E5\u8BE2\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5"
+    });
+  }
+});
+router3.post("/request-email-change", authenticateToken, authRateLimit, async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+    const userId = req.user.userId;
+    if (!newEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "\u65B0\u90AE\u7BB1\u5730\u5740\u4E0D\u80FD\u4E3A\u7A7A"
+      });
+    }
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        emailVerified: true
+      }
+    });
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        error: "\u7528\u6237\u4E0D\u5B58\u5728"
+      });
+    }
+    if (!currentUser.emailVerified) {
+      return res.status(400).json({
+        success: false,
+        error: "\u8BF7\u5148\u9A8C\u8BC1\u60A8\u5F53\u524D\u7684\u90AE\u7BB1\u5730\u5740"
+      });
+    }
+    const existingUser = await prisma.user.findUnique({
+      where: { email: newEmail },
+      select: { id: true }
+    });
+    if (existingUser && existingUser.id !== userId) {
+      return res.status(400).json({
+        success: false,
+        error: "\u8BE5\u90AE\u7BB1\u5730\u5740\u5DF2\u88AB\u5176\u4ED6\u7528\u6237\u4F7F\u7528"
+      });
+    }
+    if (currentUser.email === newEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "\u65B0\u90AE\u7BB1\u4E0D\u80FD\u4E0E\u5F53\u524D\u90AE\u7BB1\u76F8\u540C"
+      });
+    }
+    const isBeingUsed = authEmailService.isEmailBeingUsed(newEmail, userId);
+    if (isBeingUsed) {
+      return res.status(400).json({
+        success: false,
+        error: "\u8BE5\u90AE\u7BB1\u5730\u5740\u6B63\u5728\u88AB\u5176\u4ED6\u7528\u6237\u7533\u8BF7\u4F7F\u7528"
+      });
+    }
+    const userAgent = req.get("User-Agent");
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const emailResult = await authEmailService.sendEmailChangeConfirmationEmail(
+      userId,
+      currentUser.email,
+      newEmail,
+      currentUser.name || "\u7528\u6237",
+      userAgent,
+      ipAddress
+    );
+    if (emailResult.success) {
+      authEmailService.sendEmailChangeNotificationEmail(
+        currentUser.email,
+        newEmail,
+        currentUser.name || "\u7528\u6237",
+        userAgent,
+        ipAddress
+      ).catch((error) => {
+        console.error("Failed to send email change notification:", error);
+      });
+      res.json({
+        success: true,
+        message: "\u786E\u8BA4\u90AE\u4EF6\u5DF2\u53D1\u9001\u5230\u65B0\u90AE\u7BB1\uFF0C\u8BF7\u67E5\u6536\u5E76\u786E\u8BA4\u53D8\u66F4"
+      });
+    } else {
+      let errorMessage = "\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5";
+      switch (emailResult.error) {
+        case "invalid_email_format":
+          errorMessage = "\u90AE\u7BB1\u683C\u5F0F\u4E0D\u6B63\u786E";
+          break;
+        case "same_email":
+          errorMessage = "\u65B0\u90AE\u7BB1\u4E0D\u80FD\u4E0E\u5F53\u524D\u90AE\u7BB1\u76F8\u540C";
+          break;
+        case "too_many_requests":
+          errorMessage = "\u8BF7\u6C42\u8FC7\u4E8E\u9891\u7E41\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5";
+          break;
+        case "request_too_frequent":
+          errorMessage = "\u8BF7\u7B49\u5F855\u5206\u949F\u540E\u518D\u8BD5";
+          break;
+      }
+      res.status(400).json({
+        success: false,
+        error: errorMessage
+      });
+    }
+  } catch (error) {
+    console.error("Email change request error:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u670D\u52A1\u5668\u9519\u8BEF\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5"
+    });
+  }
+});
+router3.post("/verify-email-change", authenticateToken, authRateLimit, async (req, res) => {
+  try {
+    const { newEmail, code } = req.body;
+    const userId = req.user.userId;
+    if (!newEmail || !code) {
+      return res.status(400).json({
+        success: false,
+        error: "\u65B0\u90AE\u7BB1\u548C\u9A8C\u8BC1\u7801\u4E0D\u80FD\u4E3A\u7A7A"
+      });
+    }
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true
+      }
+    });
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        error: "\u7528\u6237\u4E0D\u5B58\u5728"
+      });
+    }
+    const verificationResult = await authEmailService.verifyEmailChangeCode(
+      userId,
+      newEmail,
+      code
+    );
+    if (!verificationResult.success) {
+      let errorMessage = "\u9A8C\u8BC1\u5931\u8D25";
+      switch (verificationResult.error) {
+        case "request_not_found":
+          errorMessage = "\u53D8\u66F4\u8BF7\u6C42\u4E0D\u5B58\u5728\u6216\u5DF2\u8FC7\u671F";
+          break;
+        case "request_expired":
+          errorMessage = "\u9A8C\u8BC1\u7801\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u91CD\u65B0\u7533\u8BF7";
+          break;
+        case "invalid_verification_code":
+          errorMessage = "\u9A8C\u8BC1\u7801\u9519\u8BEF";
+          break;
+        case "already_verified":
+          errorMessage = "\u8BE5\u8BF7\u6C42\u5DF2\u88AB\u9A8C\u8BC1";
+          break;
+        case "request_cancelled":
+          errorMessage = "\u53D8\u66F4\u8BF7\u6C42\u5DF2\u88AB\u53D6\u6D88";
+          break;
+      }
+      return res.status(400).json({
+        success: false,
+        error: errorMessage
+      });
+    }
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        email: newEmail,
+        emailVerified: true
+        // 确保新邮箱是验证状态
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        emailVerified: true,
+        updatedAt: true
+      }
+    });
+    const userAgent = req.get("User-Agent");
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    authEmailService.sendEmailChangeSuccessEmail(
+      verificationResult.oldEmail,
+      newEmail,
+      currentUser.name || "\u7528\u6237",
+      userAgent,
+      ipAddress
+    ).catch((error) => {
+      console.error("Failed to send email change success notification:", error);
+    });
+    const tokens = generateTokens({
+      userId: updatedUser.id,
+      email: updatedUser.email,
+      role: req.user.role
+    });
+    res.json({
+      success: true,
+      data: {
+        user: updatedUser,
+        ...tokens
+      },
+      message: "\u90AE\u7BB1\u53D8\u66F4\u6210\u529F\uFF01\u8BF7\u4F7F\u7528\u65B0\u90AE\u7BB1\u767B\u5F55"
+    });
+  } catch (error) {
+    console.error("Email change verification error:", error);
+    if (error.code === "P2002") {
+      return res.status(400).json({
+        success: false,
+        error: "\u8BE5\u90AE\u7BB1\u5730\u5740\u5DF2\u88AB\u4F7F\u7528"
+      });
+    }
+    res.status(500).json({
+      success: false,
+      error: "\u9A8C\u8BC1\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5"
+    });
+  }
+});
+router3.post("/cancel-email-change", authenticateToken, authRateLimit, async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+    const userId = req.user.userId;
+    const cancelResult = await authEmailService.cancelEmailChangeRequest(userId, newEmail);
+    if (cancelResult.success && cancelResult.cancelledCount > 0) {
+      res.json({
+        success: true,
+        message: `\u5DF2\u53D6\u6D88 ${cancelResult.cancelledCount} \u4E2A\u90AE\u7BB1\u53D8\u66F4\u8BF7\u6C42`,
+        data: {
+          cancelledCount: cancelResult.cancelledCount
+        }
+      });
+    } else {
+      res.json({
+        success: true,
+        message: "\u6CA1\u6709\u627E\u5230\u53EF\u53D6\u6D88\u7684\u53D8\u66F4\u8BF7\u6C42",
+        data: {
+          cancelledCount: 0
+        }
+      });
+    }
+  } catch (error) {
+    console.error("Cancel email change error:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u53D6\u6D88\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5"
+    });
+  }
+});
+router3.get("/email-change-status", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const status = authEmailService.getUserEmailChangeStatus(userId);
+    res.json({
+      success: true,
+      data: {
+        activeRequests: status.active.map((request) => ({
+          newEmail: request.newEmail,
+          createdAt: request.createdAt,
+          expiresAt: request.expiresAt
+        })),
+        totalRequests: status.total
+      }
+    });
+  } catch (error) {
+    console.error("Email change status error:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u83B7\u53D6\u72B6\u6001\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5"
     });
   }
 });
@@ -5020,6 +5825,167 @@ router6.get(
     }
   }
 );
+console.log("\u{1F527} [\u8DEF\u7531\u6CE8\u518C] \u6CE8\u518C GET /vocabulary/test-simple \u7AEF\u70B9");
+router6.get("/test-simple", (req, res) => {
+  res.json({
+    success: true,
+    message: "Vocabulary router working",
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    route: "/vocabulary/test-simple"
+  });
+});
+console.log("\u{1F527} [\u8DEF\u7531\u6CE8\u518C] \u6CE8\u518C POST /vocabulary/definition-test \u7AEF\u70B9 - \u65E0\u9700\u8BA4\u8BC1");
+router6.post("/definition-test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Definition route working",
+    requestBody: req.body,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    route: "/vocabulary/definition-test"
+  });
+});
+console.log("\u{1F527} [\u8DEF\u7531\u6CE8\u518C] \u6CE8\u518C POST /vocabulary/definition-simple \u7AEF\u70B9 - \u8D85\u7B80\u5316\u7248\u672C");
+router6.post(
+  "/definition-simple",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      console.log(`\u{1F680} [\u7B80\u5316API] \u6536\u5230\u8BCD\u6C47\u5B9A\u4E49\u8BF7\u6C42`);
+      const { word, language = "zh" } = req.body;
+      if (!word) {
+        return res.status(400).json({
+          success: false,
+          error: "\u8BF7\u63D0\u4F9B\u5355\u8BCD"
+        });
+      }
+      const mockResponse = {
+        success: true,
+        data: {
+          word,
+          definition: `${word} \u7684\u6A21\u62DF\u5B9A\u4E49 - \u4EC5\u7528\u4E8E\u6D4B\u8BD5\u8DEF\u7531\u8FDE\u901A\u6027`,
+          phonetic: `/${word}/`,
+          partOfSpeech: "noun",
+          meanings: [
+            {
+              partOfSpeech: "noun",
+              definitions: [
+                {
+                  definition: `${word} \u7684\u6A21\u62DF\u91CA\u4E49`,
+                  example: `Example sentence with ${word}.`
+                }
+              ]
+            }
+          ]
+        }
+      };
+      console.log(`\u{1F4E4} [\u7B80\u5316API] \u8FD4\u56DE\u6A21\u62DF\u7ED3\u679C`);
+      res.json(mockResponse);
+    } catch (error) {
+      console.error(`\u{1F4A5} [\u7B80\u5316API] \u9519\u8BEF:`, error);
+      res.status(500).json({
+        success: false,
+        error: "\u7B80\u5316\u7248\u672CAPI\u9519\u8BEF"
+      });
+    }
+  }
+);
+console.log("\u{1F527} [\u8DEF\u7531\u6CE8\u518C] \u6CE8\u518C POST /vocabulary/definition \u7AEF\u70B9 - v2.0.1 - \u4FEE\u590D\u8DEF\u7531\u987A\u5E8F");
+router6.post(
+  "/definition",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      console.log(`\u{1F680} [\u540E\u7AEFAPI] \u6536\u5230\u8BCD\u6C47\u5B9A\u4E49\u8BF7\u6C42`);
+      console.log(`\u{1F680} [\u540E\u7AEFAPI] \u8BF7\u6C42\u4F53:`, req.body);
+      console.log(`\u{1F680} [\u540E\u7AEFAPI] \u7528\u6237\u4FE1\u606F:`, req.user);
+      const { word, language = "zh" } = req.body;
+      const userId = req.user.userId;
+      if (!word || typeof word !== "string") {
+        console.log(`\u274C [\u540E\u7AEFAPI] \u65E0\u6548\u7684\u5355\u8BCD\u53C2\u6570: ${word}`);
+        return res.status(400).json({
+          success: false,
+          error: "\u8BF7\u63D0\u4F9B\u6709\u6548\u7684\u5355\u8BCD"
+        });
+      }
+      console.log(`\u{1F50D} [\u540E\u7AEFAPI] \u5F00\u59CB\u5904\u7406\u8BCD\u6C47\u5B9A\u4E49: word="${word}", language="${language}", user="${userId}"`);
+      console.log(`\u{1F5C4}\uFE0F [\u540E\u7AEFAPI] \u67E5\u8BE2\u7528\u6237\u8BCD\u6C47\u8BB0\u5F55: userId="${userId}", word="${word.toLowerCase()}"`);
+      let existingWord = await prisma.vocabularyItem.findFirst({
+        where: {
+          userId,
+          word: word.toLowerCase()
+        }
+      });
+      console.log(`\u{1F5C4}\uFE0F [\u540E\u7AEFAPI] \u7528\u6237\u8BCD\u6C47\u67E5\u8BE2\u7ED3\u679C:`, existingWord ? "\u627E\u5230\u8BB0\u5F55" : "\u672A\u627E\u5230\u8BB0\u5F55");
+      if (!existingWord) {
+        console.log(`\u{1F5C4}\uFE0F [\u540E\u7AEFAPI] \u67E5\u8BE2\u5176\u4ED6\u7528\u6237\u8BCD\u6C47\u8BB0\u5F55: word="${word.toLowerCase()}"`);
+        existingWord = await prisma.vocabularyItem.findFirst({
+          where: {
+            word: word.toLowerCase(),
+            meanings: {
+              not: null
+              // 确保有有效的meanings数据
+            }
+          },
+          orderBy: {
+            addedAt: "desc"
+            // 获取最新的记录
+          }
+        });
+        console.log(`\u{1F5C4}\uFE0F [\u540E\u7AEFAPI] \u5176\u4ED6\u7528\u6237\u8BCD\u6C47\u67E5\u8BE2\u7ED3\u679C:`, existingWord ? "\u627E\u5230\u8BB0\u5F55" : "\u672A\u627E\u5230\u8BB0\u5F55");
+      }
+      if (existingWord && existingWord.meanings) {
+        console.log(`\u2705 [\u540E\u7AEFAPI] \u6570\u636E\u5E93\u4E2D\u627E\u5230\u8BCD\u6C47\u5B9A\u4E49: ${word}`, existingWord.meanings);
+        const response = {
+          success: true,
+          data: {
+            word,
+            definition: existingWord.definition || "\u672A\u627E\u5230\u91CA\u4E49",
+            phonetic: existingWord.phonetic,
+            partOfSpeech: existingWord.meanings[0]?.partOfSpeech || "",
+            meanings: existingWord.meanings || []
+          }
+        };
+        console.log(`\u{1F4E4} [\u540E\u7AEFAPI] \u8FD4\u56DE\u6570\u636E\u5E93\u7ED3\u679C:`, response);
+        res.json(response);
+        return;
+      }
+      console.log(`\u{1F916} [\u540E\u7AEFAPI] \u6570\u636E\u5E93\u65E0\u8BB0\u5F55\uFF0C\u8C03\u7528AI\u83B7\u53D6: word="${word}", language="${language}"`);
+      try {
+        console.log(`\u{1F916} [\u540E\u7AEFAPI] \u8C03\u7528geminiService.getWordDefinition...`);
+        const wordDefinition = await geminiService.getWordDefinition(word, "", language);
+        console.log(`\u2705 [\u540E\u7AEFAPI] AI\u8FD4\u56DE\u5B9A\u4E49:`, wordDefinition);
+        const aiResponse = {
+          success: true,
+          data: {
+            word,
+            definition: wordDefinition.definition || "\u672A\u627E\u5230\u91CA\u4E49",
+            phonetic: wordDefinition.phonetic,
+            partOfSpeech: wordDefinition.partOfSpeech,
+            meanings: wordDefinition.meanings || []
+          }
+        };
+        console.log(`\u{1F4E4} [\u540E\u7AEFAPI] \u8FD4\u56DEAI\u7ED3\u679C:`, aiResponse);
+        res.json(aiResponse);
+      } catch (error) {
+        console.error(`\u274C [\u540E\u7AEFAPI] AI\u8C03\u7528\u5931\u8D25:`, error);
+        const errorResponse = {
+          success: false,
+          error: "AI\u7FFB\u8BD1\u670D\u52A1\u6682\u65F6\u4E0D\u53EF\u7528\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5"
+        };
+        console.log(`\u{1F4E4} [\u540E\u7AEFAPI] \u8FD4\u56DE\u9519\u8BEF\u54CD\u5E94:`, errorResponse);
+        res.status(500).json(errorResponse);
+      }
+    } catch (error) {
+      console.error(`\u{1F4A5} [\u540E\u7AEFAPI] \u5916\u5C42\u5F02\u5E38\u6355\u83B7:`, error);
+      const fatalErrorResponse = {
+        success: false,
+        error: "\u83B7\u53D6\u8BCD\u6C47\u5B9A\u4E49\u5931\u8D25"
+      };
+      console.log(`\u{1F4E4} [\u540E\u7AEFAPI] \u8FD4\u56DE\u81F4\u547D\u9519\u8BEF\u54CD\u5E94:`, fatalErrorResponse);
+      res.status(500).json(fatalErrorResponse);
+    }
+  }
+);
 router6.post(
   "/:wordId/review",
   authenticateToken,
@@ -5322,8 +6288,32 @@ function getBeijingTime() {
 }
 var vocabulary_default = router6;
 
-// src/routes/billing.ts
+// src/routes/vocabulary-minimal.ts
 import { Router as Router7 } from "express";
+var router7 = Router7();
+console.log("\u{1F527} [\u6700\u7B80\u8DEF\u7531] \u6CE8\u518C GET /vocabulary-minimal/test \u7AEF\u70B9");
+router7.get("/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Minimal vocabulary router working",
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    route: "/vocabulary-minimal/test"
+  });
+});
+console.log("\u{1F527} [\u6700\u7B80\u8DEF\u7531] \u6CE8\u518C POST /vocabulary-minimal/test \u7AEF\u70B9");
+router7.post("/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Minimal vocabulary POST working",
+    requestBody: req.body,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    route: "/vocabulary-minimal/test"
+  });
+});
+var vocabulary_minimal_default = router7;
+
+// src/routes/billing.ts
+import { Router as Router8 } from "express";
 import Stripe2 from "stripe";
 import { Prisma } from "@prisma/client";
 
@@ -5896,7 +6886,7 @@ var stripeService_default = StripeService;
 
 // src/routes/billing.ts
 init_database();
-var router7 = Router7();
+var router8 = Router8();
 function getStripeInstance() {
   if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error("STRIPE_SECRET_KEY environment variable is not set");
@@ -5924,7 +6914,7 @@ function setCache(key, data) {
     expireAt: Date.now() + CACHE_TTL
   });
 }
-router7.get("/health", async (req, res) => {
+router8.get("/health", async (req, res) => {
   try {
     res.json({
       success: true,
@@ -5941,7 +6931,7 @@ router7.get("/health", async (req, res) => {
     });
   }
 });
-router7.post("/setup-database", async (req, res) => {
+router8.post("/setup-database", async (req, res) => {
   try {
     log.info("\u{1F198} Emergency database setup requested");
     const plans = [
@@ -6129,7 +7119,7 @@ router7.post("/setup-database", async (req, res) => {
     });
   }
 });
-router7.post("/clear-cache", async (req, res) => {
+router8.post("/clear-cache", async (req, res) => {
   try {
     log.info("\u{1F5D1}\uFE0F Clearing billing cache");
     cache.clear();
@@ -6147,7 +7137,7 @@ router7.post("/clear-cache", async (req, res) => {
     });
   }
 });
-router7.post("/emergency-migrate", async (req, res) => {
+router8.post("/emergency-migrate", async (req, res) => {
   try {
     log.info("\u{1F680} Starting emergency database migration...");
     await prisma.$executeRaw`
@@ -6195,7 +7185,7 @@ router7.post("/emergency-migrate", async (req, res) => {
     });
   }
 });
-router7.get("/test-env", async (req, res) => {
+router8.get("/test-env", async (req, res) => {
   try {
     const testPlan = {
       id: "premium_monthly",
@@ -6217,7 +7207,7 @@ router7.get("/test-env", async (req, res) => {
     });
   }
 });
-router7.get("/debug-env", async (req, res) => {
+router8.get("/debug-env", async (req, res) => {
   try {
     res.json({
       success: true,
@@ -6237,7 +7227,7 @@ router7.get("/debug-env", async (req, res) => {
     });
   }
 });
-router7.get("/plans", async (req, res) => {
+router8.get("/plans", async (req, res) => {
   try {
     log.info("Billing plans request started");
     const cacheKey = "subscription_plans_active";
@@ -6388,7 +7378,7 @@ router7.get("/plans", async (req, res) => {
     });
   }
 });
-router7.post("/webhooks", async (req, res) => {
+router8.post("/webhooks", async (req, res) => {
   const sig = req.headers["stripe-signature"];
   try {
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
@@ -6413,7 +7403,7 @@ router7.post("/webhooks", async (req, res) => {
     });
   }
 });
-router7.get("/user/subscription", authenticateToken, async (req, res) => {
+router8.get("/user/subscription", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     log.info("User subscription request started", { userId });
@@ -6504,7 +7494,7 @@ router7.get("/user/subscription", authenticateToken, async (req, res) => {
     });
   }
 });
-router7.post("/user/subscription/start-trial", authenticateToken, async (req, res) => {
+router8.post("/user/subscription/start-trial", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { planId } = req.body;
@@ -6558,7 +7548,7 @@ router7.post("/user/subscription/start-trial", authenticateToken, async (req, re
     });
   }
 });
-router7.post("/debug-trial", authenticateToken, async (req, res) => {
+router8.post("/debug-trial", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { planId } = req.body;
@@ -6620,7 +7610,7 @@ router7.post("/debug-trial", authenticateToken, async (req, res) => {
     });
   }
 });
-router7.get("/debug-subscription/:userId", async (req, res) => {
+router8.get("/debug-subscription/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const subscription = await prisma.userSubscription.findUnique({
@@ -6655,7 +7645,7 @@ router7.get("/debug-subscription/:userId", async (req, res) => {
     });
   }
 });
-router7.delete("/debug-reset-all", async (req, res) => {
+router8.delete("/debug-reset-all", async (req, res) => {
   try {
     const subscriptionsCount = await prisma.userSubscription.count();
     const quotasCount = await prisma.usageQuota.count();
@@ -6679,7 +7669,7 @@ router7.delete("/debug-reset-all", async (req, res) => {
     });
   }
 });
-router7.delete("/debug-reset/:userId", async (req, res) => {
+router8.delete("/debug-reset/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const deletedSubscription = await prisma.userSubscription.delete({
@@ -6704,7 +7694,7 @@ router7.delete("/debug-reset/:userId", async (req, res) => {
     });
   }
 });
-router7.post("/create-checkout-session", authenticateToken, async (req, res) => {
+router8.post("/create-checkout-session", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { planId, returnUrl, cancelUrl } = req.body;
@@ -6757,7 +7747,7 @@ router7.post("/create-checkout-session", authenticateToken, async (req, res) => 
     });
   }
 });
-router7.post("/create-portal-session", authenticateToken, async (req, res) => {
+router8.post("/create-portal-session", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { returnUrl } = req.body;
@@ -6784,7 +7774,7 @@ router7.post("/create-portal-session", authenticateToken, async (req, res) => {
     });
   }
 });
-router7.post("/user/subscription/cancel", authenticateToken, async (req, res) => {
+router8.post("/user/subscription/cancel", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const subscription = await stripeService_default.cancelSubscription(userId);
@@ -6814,7 +7804,7 @@ router7.post("/user/subscription/cancel", authenticateToken, async (req, res) =>
     });
   }
 });
-router7.post("/user/subscription/reactivate", authenticateToken, async (req, res) => {
+router8.post("/user/subscription/reactivate", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const subscription = await prisma.userSubscription.findUnique({
@@ -6861,7 +7851,7 @@ router7.post("/user/subscription/reactivate", authenticateToken, async (req, res
     });
   }
 });
-router7.get("/user/billing-history", authenticateToken, async (req, res) => {
+router8.get("/user/billing-history", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const page = parseInt(req.query.page) || 1;
@@ -6913,7 +7903,7 @@ router7.get("/user/billing-history", authenticateToken, async (req, res) => {
     });
   }
 });
-router7.get("/user/usage/check/:resourceType", authenticateToken, async (req, res) => {
+router8.get("/user/usage/check/:resourceType", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { resourceType } = req.params;
@@ -6930,7 +7920,7 @@ router7.get("/user/usage/check/:resourceType", authenticateToken, async (req, re
     });
   }
 });
-router7.post("/migrate-database-schema", async (req, res) => {
+router8.post("/migrate-database-schema", async (req, res) => {
   try {
     log.info("\u{1F198} Emergency database schema migration requested");
     const { execSync } = __require("child_process");
@@ -6982,11 +7972,11 @@ router7.post("/migrate-database-schema", async (req, res) => {
     });
   }
 });
-var billing_default = router7;
+var billing_default = router8;
 
 // src/routes/monitoring.ts
 init_database();
-import { Router as Router8 } from "express";
+import { Router as Router9 } from "express";
 
 // src/services/monitoringService.ts
 var MonitoringService = class {
@@ -7238,9 +8228,9 @@ var MonitoringService = class {
 };
 
 // src/routes/monitoring.ts
-var router8 = Router8();
+var router9 = Router9();
 var monitoringService = new MonitoringService(prisma);
-router8.get("/health", async (req, res) => {
+router9.get("/health", async (req, res) => {
   try {
     const startTime = Date.now();
     const dbCheck = await prisma.$queryRaw`SELECT 1 as status`;
@@ -7267,7 +8257,7 @@ router8.get("/health", async (req, res) => {
     });
   }
 });
-router8.get(
+router9.get(
   "/health/detailed",
   authenticateToken,
   async (req, res) => {
@@ -7297,7 +8287,7 @@ router8.get(
     }
   }
 );
-router8.get(
+router9.get(
   "/metrics/business",
   authenticateToken,
   async (req, res) => {
@@ -7320,7 +8310,7 @@ router8.get(
     }
   }
 );
-router8.get(
+router9.get(
   "/stats/realtime",
   authenticateToken,
   async (req, res) => {
@@ -7343,7 +8333,7 @@ router8.get(
     }
   }
 );
-router8.get(
+router9.get(
   "/system/info",
   authenticateToken,
   async (req, res) => {
@@ -7384,7 +8374,7 @@ router8.get(
     }
   }
 );
-router8.post(
+router9.post(
   "/cache/clear",
   authenticateToken,
   async (req, res) => {
@@ -7411,7 +8401,7 @@ router8.post(
     }
   }
 );
-router8.get(
+router9.get(
   "/logs/recent",
   authenticateToken,
   async (req, res) => {
@@ -7449,17 +8439,17 @@ router8.get(
     }
   }
 );
-router8.get("/ping", (req, res) => {
+router9.get("/ping", (req, res) => {
   res.status(200).json({
     status: "pong",
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
     uptime: Math.floor(process.uptime())
   });
 });
-var monitoring_default = router8;
+var monitoring_default = router9;
 
 // src/routes/analytics.ts
-import { Router as Router9 } from "express";
+import { Router as Router10 } from "express";
 
 // src/utils/analyticsLogger.ts
 var AnalyticsLogger = class {
@@ -7955,7 +8945,7 @@ var trackErrorActivity = (err, req, res, next) => {
 
 // src/routes/analytics.ts
 init_database();
-var router9 = Router9();
+var router10 = Router10();
 var requireAdmin2 = (req, res, next) => {
   if (!req.user || req.user.role !== "ADMIN") {
     return res.status(403).json({
@@ -7965,7 +8955,7 @@ var requireAdmin2 = (req, res, next) => {
   }
   next();
 };
-router9.get(
+router10.get(
   "/progress",
   authenticateToken,
   async (req, res) => {
@@ -7998,7 +8988,7 @@ router9.get(
     }
   }
 );
-router9.get(
+router10.get(
   "/progress/trend",
   authenticateToken,
   async (req, res) => {
@@ -8043,7 +9033,7 @@ router9.get(
     }
   }
 );
-router9.get(
+router10.get(
   "/profile",
   authenticateToken,
   async (req, res) => {
@@ -8074,7 +9064,7 @@ router9.get(
     }
   }
 );
-router9.get(
+router10.get(
   "/stats",
   authenticateToken,
   async (req, res) => {
@@ -8170,7 +9160,7 @@ router9.get(
     }
   }
 );
-router9.get(
+router10.get(
   "/recommendations",
   authenticateToken,
   async (req, res) => {
@@ -8254,7 +9244,7 @@ router9.get(
     }
   }
 );
-router9.get(
+router10.get(
   "/export",
   authenticateToken,
   async (req, res) => {
@@ -8326,7 +9316,7 @@ router9.get(
     }
   }
 );
-router9.get(
+router10.get(
   "/admin/operational-metrics",
   authenticateToken,
   requireAdmin2,
@@ -8454,7 +9444,7 @@ router9.get(
     }
   }
 );
-router9.get(
+router10.get(
   "/admin/user-trend",
   authenticateToken,
   requireAdmin2,
@@ -8511,7 +9501,7 @@ router9.get(
     }
   }
 );
-router9.get(
+router10.get(
   "/admin/feature-usage",
   authenticateToken,
   requireAdmin2,
@@ -8561,14 +9551,14 @@ router9.get(
     }
   }
 );
-router9.get("/health", (req, res) => {
+router10.get("/health", (req, res) => {
   res.json({
     status: "ok",
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
     message: "Analytics service is running"
   });
 });
-router9.get("/debug/timezone", async (req, res) => {
+router10.get("/debug/timezone", async (req, res) => {
   const now = /* @__PURE__ */ new Date();
   const utcNow = new Date(now.toISOString());
   const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1e3);
@@ -8623,7 +9613,7 @@ router9.get("/debug/timezone", async (req, res) => {
     });
   }
 });
-router9.post("/debug/fix-login-dates", async (req, res) => {
+router10.post("/debug/fix-login-dates", async (req, res) => {
   try {
     console.log("\u{1F527} \u5F00\u59CB\u901A\u8FC7API\u4FEE\u590D\u7528\u6237\u767B\u5F55\u65E5\u671F\u6570\u636E...");
     const usersNeedingFix = await prisma.user.findMany({
@@ -8705,7 +9695,7 @@ router9.post("/debug/fix-login-dates", async (req, res) => {
     });
   }
 });
-router9.get("/debug/database", async (req, res) => {
+router10.get("/debug/database", async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       take: 3,
@@ -8793,7 +9783,7 @@ function translateQuestionType(type) {
   };
   return typeMap[type] || type;
 }
-router9.post(
+router10.post(
   "/debug/fix-user-status",
   authenticateToken,
   requireAdmin2,
@@ -8862,7 +9852,7 @@ router9.post(
     }
   }
 );
-router9.post("/debug/test-login-update", async (req, res) => {
+router10.post("/debug/test-login-update", async (req, res) => {
   try {
     console.log("\u{1F50D} \u5F00\u59CB\u6D4B\u8BD5\u767B\u5F55\u66F4\u65B0\u903B\u8F91...");
     const { email } = req.body;
@@ -8979,7 +9969,7 @@ router9.post("/debug/test-login-update", async (req, res) => {
     });
   }
 });
-router9.post(
+router10.post(
   "/debug/fix-timezone",
   async (req, res) => {
     try {
@@ -9053,12 +10043,12 @@ router9.post(
     }
   }
 );
-var analytics_default = router9;
+var analytics_default = router10;
 
 // src/routes/users.ts
-import { Router as Router10 } from "express";
+import { Router as Router11 } from "express";
 init_database();
-var router10 = Router10();
+var router11 = Router11();
 var requireAdmin3 = (req, res, next) => {
   if (!req.user || req.user.role !== "ADMIN") {
     return res.status(403).json({
@@ -9068,7 +10058,7 @@ var requireAdmin3 = (req, res, next) => {
   }
   next();
 };
-router10.get(
+router11.get(
   "/",
   authenticateToken,
   requireAdmin3,
@@ -9150,7 +10140,7 @@ router10.get(
     }
   }
 );
-router10.get(
+router11.get(
   "/:userId",
   authenticateToken,
   requireAdmin3,
@@ -9248,7 +10238,7 @@ router10.get(
     }
   }
 );
-router10.patch(
+router11.patch(
   "/:userId/status",
   authenticateToken,
   requireAdmin3,
@@ -9294,7 +10284,7 @@ router10.patch(
     }
   }
 );
-router10.patch(
+router11.patch(
   "/:userId/active-status",
   authenticateToken,
   requireAdmin3,
@@ -9345,7 +10335,7 @@ router10.patch(
     }
   }
 );
-router10.patch(
+router11.patch(
   "/:userId/role",
   authenticateToken,
   requireAdmin3,
@@ -9397,7 +10387,7 @@ router10.patch(
     }
   }
 );
-router10.delete(
+router11.delete(
   "/:userId",
   authenticateToken,
   requireAdmin3,
@@ -9442,7 +10432,7 @@ router10.delete(
     }
   }
 );
-router10.get(
+router11.get(
   "/stats/overview",
   authenticateToken,
   requireAdmin3,
@@ -9496,13 +10486,13 @@ router10.get(
     }
   }
 );
-var users_default = router10;
+var users_default = router11;
 
 // src/routes/database.ts
-import { Router as Router11 } from "express";
+import { Router as Router12 } from "express";
 init_database();
-var router11 = Router11();
-router11.post("/migrate", authenticateToken, requireAdmin, async (req, res) => {
+var router12 = Router12();
+router12.post("/migrate", authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { action, migration_name } = req.body;
     if (action === "deploy_migrations" && migration_name === "add_token_blacklist") {
@@ -9573,7 +10563,7 @@ router11.post("/migrate", authenticateToken, requireAdmin, async (req, res) => {
     });
   }
 });
-router11.get("/status", authenticateToken, requireAdmin, async (req, res) => {
+router12.get("/status", authenticateToken, requireAdmin, async (req, res) => {
   try {
     const tableChecks = await Promise.allSettled([
       prisma.$queryRaw`SELECT 1 FROM "User" LIMIT 1`,
@@ -9611,13 +10601,13 @@ router11.get("/status", authenticateToken, requireAdmin, async (req, res) => {
     });
   }
 });
-var database_default = router11;
+var database_default = router12;
 
 // src/routes/db-migrate.ts
 init_database();
-import { Router as Router12 } from "express";
-var router12 = Router12();
-router12.post("/execute", async (req, res) => {
+import { Router as Router13 } from "express";
+var router13 = Router13();
+router13.post("/execute", async (req, res) => {
   try {
     log.info("\u{1F680} Starting database migration...");
     await prisma.$executeRaw`
@@ -9751,7 +10741,7 @@ router12.post("/execute", async (req, res) => {
     });
   }
 });
-router12.get("/check", async (req, res) => {
+router13.get("/check", async (req, res) => {
   try {
     const tables = [];
     const tableChecks = [
@@ -9796,13 +10786,13 @@ router12.get("/check", async (req, res) => {
     });
   }
 });
-var db_migrate_default = router12;
+var db_migrate_default = router13;
 
 // src/routes/emergency-fix.ts
 init_database();
-import { Router as Router13 } from "express";
-var router13 = Router13();
-router13.post("/create-tables", async (req, res) => {
+import { Router as Router14 } from "express";
+var router14 = Router14();
+router14.post("/create-tables", async (req, res) => {
   try {
     console.log("\u{1F6A8} Creating missing tables...");
     await prisma.$executeRaw`
@@ -9876,7 +10866,7 @@ router13.post("/create-tables", async (req, res) => {
     });
   }
 });
-router13.get("/check", async (req, res) => {
+router14.get("/check", async (req, res) => {
   try {
     const checkUsageQuotas = await prisma.$queryRaw`
       SELECT EXISTS (
@@ -9900,11 +10890,11 @@ router13.get("/check", async (req, res) => {
     });
   }
 });
-var emergency_fix_default = router13;
+var emergency_fix_default = router14;
 
 // src/routes/admin.ts
 init_database();
-import { Router as Router14 } from "express";
+import { Router as Router15 } from "express";
 import bcrypt3 from "bcryptjs";
 async function verifyAdminPermission(req) {
   if (req.user?.userId === "be2d0b23-b625-47ab-b406-db5778c58471") {
@@ -9926,8 +10916,8 @@ async function verifyAdminPermission(req) {
     currentUser
   };
 }
-var router14 = Router14();
-router14.post("/create-first-admin", async (req, res) => {
+var router15 = Router15();
+router15.post("/create-first-admin", async (req, res) => {
   try {
     const existingAdmin = await prisma.user.findFirst({
       where: { role: "ADMIN" }
@@ -10003,7 +10993,7 @@ router14.post("/create-first-admin", async (req, res) => {
     });
   }
 });
-router14.get("/users", authenticateToken, async (req, res) => {
+router15.get("/users", authenticateToken, async (req, res) => {
   try {
     const currentUser = await prisma.user.findUnique({
       where: { id: req.user.userId }
@@ -10047,7 +11037,7 @@ router14.get("/users", authenticateToken, async (req, res) => {
     });
   }
 });
-router14.post("/promote/:userId", authenticateToken, async (req, res) => {
+router15.post("/promote/:userId", authenticateToken, async (req, res) => {
   try {
     const currentUser = await prisma.user.findUnique({
       where: { id: req.user.userId }
@@ -10099,7 +11089,7 @@ router14.post("/promote/:userId", authenticateToken, async (req, res) => {
     });
   }
 });
-router14.get("/users/:userId/subscription", authenticateToken, async (req, res) => {
+router15.get("/users/:userId/subscription", authenticateToken, async (req, res) => {
   try {
     const { isAdmin, currentUser } = await verifyAdminPermission(req);
     if (!isAdmin) {
@@ -10177,7 +11167,7 @@ router14.get("/users/:userId/subscription", authenticateToken, async (req, res) 
     });
   }
 });
-router14.post("/users/:userId/subscription-status", authenticateToken, async (req, res) => {
+router15.post("/users/:userId/subscription-status", authenticateToken, async (req, res) => {
   try {
     const currentUser = await prisma.user.findUnique({
       where: { id: req.user.userId }
@@ -10350,7 +11340,7 @@ router14.post("/users/:userId/subscription-status", authenticateToken, async (re
     });
   }
 });
-router14.post("/users/:userId/test-account", authenticateToken, async (req, res) => {
+router15.post("/users/:userId/test-account", authenticateToken, async (req, res) => {
   try {
     const currentUser = await prisma.user.findUnique({
       where: { id: req.user.userId }
@@ -10431,7 +11421,7 @@ router14.post("/users/:userId/test-account", authenticateToken, async (req, res)
     });
   }
 });
-router14.get("/subscription-logs", authenticateToken, async (req, res) => {
+router15.get("/subscription-logs", authenticateToken, async (req, res) => {
   try {
     const currentUser = await prisma.user.findUnique({
       where: { id: req.user.userId }
@@ -10492,7 +11482,7 @@ router14.get("/subscription-logs", authenticateToken, async (req, res) => {
     });
   }
 });
-router14.post("/users/:userId/refresh-permissions", authenticateToken, async (req, res) => {
+router15.post("/users/:userId/refresh-permissions", authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUser = req.user;
@@ -10535,13 +11525,13 @@ router14.post("/users/:userId/refresh-permissions", authenticateToken, async (re
     });
   }
 });
-var admin_default = router14;
+var admin_default = router15;
 
 // src/routes/database-fix.ts
 init_database();
-import { Router as Router15 } from "express";
-var router15 = Router15();
-router15.post("/initialize-subscriptions", authenticateToken, async (req, res) => {
+import { Router as Router16 } from "express";
+var router16 = Router16();
+router16.post("/initialize-subscriptions", authenticateToken, async (req, res) => {
   try {
     console.log("\u{1F680} API: \u5F00\u59CB\u521D\u59CB\u5316\u8BA2\u9605\u6570\u636E\u5E93...");
     const currentUser = await prisma.user.findUnique({
@@ -10796,7 +11786,7 @@ router15.post("/initialize-subscriptions", authenticateToken, async (req, res) =
     });
   }
 });
-router15.get("/check-subscriptions", authenticateToken, async (req, res) => {
+router16.get("/check-subscriptions", authenticateToken, async (req, res) => {
   try {
     const currentUser = await prisma.user.findUnique({
       where: { id: req.user.userId }
@@ -10847,7 +11837,7 @@ router15.get("/check-subscriptions", authenticateToken, async (req, res) => {
     });
   }
 });
-router15.post("/fix-schema", authenticateToken, async (req, res) => {
+router16.post("/fix-schema", authenticateToken, async (req, res) => {
   try {
     console.log("\u{1F527} API: \u5F00\u59CB\u4FEE\u590D\u6570\u636E\u5E93schema\u95EE\u9898...");
     const currentUser = await prisma.user.findUnique({
@@ -10949,7 +11939,849 @@ router15.post("/fix-schema", authenticateToken, async (req, res) => {
     });
   }
 });
-var database_fix_default = router15;
+var database_fix_default = router16;
+
+// src/routes/notifications.ts
+init_database();
+import { Router as Router17 } from "express";
+
+// src/services/notificationEmailService.ts
+import React17 from "react";
+
+// src/emails/templates/notifications/SecurityAlertEmail.tsx
+import React13 from "react";
+import { Text as Text10, Section as Section11 } from "@react-email/components";
+var AlertTypeConfig = {
+  login: {
+    title: "\u{1F510} \u65B0\u8BBE\u5907\u767B\u5F55\u901A\u77E5",
+    icon: "\u{1F510}",
+    color: "blue",
+    description: "\u68C0\u6D4B\u5230\u60A8\u7684\u8D26\u6237\u4ECE\u65B0\u8BBE\u5907\u767B\u5F55"
+  },
+  password_change: {
+    title: "\u{1F511} \u5BC6\u7801\u53D8\u66F4\u901A\u77E5",
+    icon: "\u{1F511}",
+    color: "green",
+    description: "\u60A8\u7684\u8D26\u6237\u5BC6\u7801\u5DF2\u6210\u529F\u53D8\u66F4"
+  },
+  email_change: {
+    title: "\u{1F4E7} \u90AE\u7BB1\u53D8\u66F4\u901A\u77E5",
+    icon: "\u{1F4E7}",
+    color: "orange",
+    description: "\u60A8\u7684\u8D26\u6237\u90AE\u7BB1\u5730\u5740\u5DF2\u6210\u529F\u53D8\u66F4"
+  },
+  suspicious_activity: {
+    title: "\u26A0\uFE0F \u53EF\u7591\u6D3B\u52A8\u8B66\u62A5",
+    icon: "\u26A0\uFE0F",
+    color: "red",
+    description: "\u68C0\u6D4B\u5230\u60A8\u7684\u8D26\u6237\u5B58\u5728\u53EF\u7591\u6D3B\u52A8"
+  }
+};
+function SecurityAlertEmail({
+  userName,
+  alertType,
+  alertTime,
+  location,
+  ipAddress,
+  userAgent,
+  actionUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}/account/security`,
+  supportEmail = "support@chattoeic.com"
+}) {
+  const config = AlertTypeConfig[alertType];
+  return /* @__PURE__ */ React13.createElement(Layout, { preview: `${config.title} - ${userName}` }, /* @__PURE__ */ React13.createElement(Section11, null, /* @__PURE__ */ React13.createElement(Text10, { className: `text-2xl font-bold text-${config.color}-600 mb-4 m-0` }, config.title), /* @__PURE__ */ React13.createElement(Text10, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u4EB2\u7231\u7684 ", /* @__PURE__ */ React13.createElement("span", { className: "font-semibold text-blue-600" }, userName), "\uFF0C"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, config.description, "\u3002\u4E3A\u4E86\u786E\u4FDD\u60A8\u7684\u8D26\u6237\u5B89\u5168\uFF0C\u6211\u4EEC\u5411\u60A8\u53D1\u9001\u6B64\u901A\u77E5\u90AE\u4EF6\u3002"), /* @__PURE__ */ React13.createElement(Section11, { className: `bg-${config.color}-50 border border-${config.color}-200 rounded p-4 mb-6` }, /* @__PURE__ */ React13.createElement(Text10, { className: `text-${config.color}-800 text-sm font-semibold m-0` }, config.icon, " \u6D3B\u52A8\u8BE6\u60C5\uFF1A"), /* @__PURE__ */ React13.createElement(Text10, { className: `text-${config.color}-700 text-sm mt-2 mb-1 m-0` }, "\u2022 \u65F6\u95F4\uFF1A", alertTime), location && /* @__PURE__ */ React13.createElement(Text10, { className: `text-${config.color}-700 text-sm my-1 m-0` }, "\u2022 \u4F4D\u7F6E\uFF1A", location), ipAddress && /* @__PURE__ */ React13.createElement(Text10, { className: `text-${config.color}-700 text-sm my-1 m-0` }, "\u2022 IP\u5730\u5740\uFF1A", ipAddress), userAgent && /* @__PURE__ */ React13.createElement(Text10, { className: `text-${config.color}-700 text-sm mt-1 m-0` }, "\u2022 \u8BBE\u5907\u4FE1\u606F\uFF1A", userAgent)), alertType === "login" && /* @__PURE__ */ React13.createElement(React13.Fragment, null, /* @__PURE__ */ React13.createElement(Text10, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, /* @__PURE__ */ React13.createElement("strong", null, "\u5982\u679C\u8FD9\u662F\u60A8\u672C\u4EBA\u7684\u64CD\u4F5C\uFF1A")), /* @__PURE__ */ React13.createElement(Text10, { className: "text-gray-700 text-base leading-6 mb-6 m-0" }, "\u60A8\u53EF\u4EE5\u5FFD\u7565\u6B64\u90AE\u4EF6\uFF0C\u65E0\u9700\u4EFB\u4F55\u64CD\u4F5C\u3002")), (alertType === "password_change" || alertType === "email_change") && /* @__PURE__ */ React13.createElement(React13.Fragment, null, /* @__PURE__ */ React13.createElement(Text10, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, /* @__PURE__ */ React13.createElement("strong", null, "\u5982\u679C\u8FD9\u662F\u60A8\u672C\u4EBA\u7684\u64CD\u4F5C\uFF1A")), /* @__PURE__ */ React13.createElement(Text10, { className: "text-gray-700 text-base leading-6 mb-6 m-0" }, "\u606D\u559C\uFF01\u60A8\u7684\u64CD\u4F5C\u5DF2\u6210\u529F\u5B8C\u6210\u3002")), /* @__PURE__ */ React13.createElement(Section11, { className: "bg-red-50 border-l-4 border-red-400 p-4 rounded mb-6" }, /* @__PURE__ */ React13.createElement(Text10, { className: "text-red-800 text-sm font-semibold m-0" }, "\u{1F6A8} \u5982\u679C\u4E0D\u662F\u60A8\u672C\u4EBA\u64CD\u4F5C\uFF1A"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-red-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u60A8\u7684\u8D26\u6237\u53EF\u80FD\u5DF2\u88AB\u4ED6\u4EBA\u8BBF\u95EE"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-red-700 text-sm my-1 m-0" }, "\u2022 \u8BF7\u7ACB\u5373\u66F4\u6539\u60A8\u7684\u5BC6\u7801"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-red-700 text-sm my-1 m-0" }, "\u2022 \u542F\u7528\u4E24\u6B65\u9A8C\u8BC1\uFF08\u5982\u53EF\u7528\uFF09"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-red-700 text-sm mt-1 m-0" }, "\u2022 \u7ACB\u5373\u8054\u7CFB\u6211\u4EEC\u7684\u5B89\u5168\u56E2\u961F")), /* @__PURE__ */ React13.createElement(Section11, { className: "text-center mb-6" }, /* @__PURE__ */ React13.createElement(Button, { href: actionUrl }, "\u67E5\u770B\u8D26\u6237\u5B89\u5168\u8BBE\u7F6E")), /* @__PURE__ */ React13.createElement(Section11, { className: "bg-blue-50 border border-blue-200 rounded p-4 mb-6" }, /* @__PURE__ */ React13.createElement(Text10, { className: "text-blue-800 text-sm font-semibold m-0" }, "\u{1F510} \u5B89\u5168\u5EFA\u8BAE\uFF1A"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-blue-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u4F7F\u7528\u5F3A\u5BC6\u7801\uFF0C\u5305\u542B\u5B57\u6BCD\u3001\u6570\u5B57\u548C\u7279\u6B8A\u5B57\u7B26"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u5B9A\u671F\u66F4\u6362\u5BC6\u7801\uFF0C\u5EFA\u8BAE\u6BCF3-6\u4E2A\u6708"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u4E0D\u8981\u5728\u4E0D\u540C\u7F51\u7AD9\u4F7F\u7528\u76F8\u540C\u5BC6\u7801"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u6CE8\u610F\u8BC6\u522B\u9493\u9C7C\u90AE\u4EF6\u548C\u865A\u5047\u7F51\u7AD9"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-blue-700 text-sm mt-1 m-0" }, "\u2022 \u5728\u516C\u5171\u7F51\u7EDC\u4E0B\u8C28\u614E\u767B\u5F55")), alertType === "suspicious_activity" && /* @__PURE__ */ React13.createElement(Section11, { className: "bg-amber-50 border border-amber-200 rounded p-4 mb-6" }, /* @__PURE__ */ React13.createElement(Text10, { className: "text-amber-800 text-sm font-semibold m-0" }, "\u26A1 \u7ACB\u5373\u884C\u52A8\uFF1A"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-amber-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u7ACB\u5373\u66F4\u6539\u5BC6\u7801"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-amber-700 text-sm my-1 m-0" }, "\u2022 \u68C0\u67E5\u8D26\u6237\u6D3B\u52A8\u8BB0\u5F55"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-amber-700 text-sm my-1 m-0" }, "\u2022 \u8054\u7CFB\u6211\u4EEC\u8FDB\u884C\u8D26\u6237\u5B89\u5168\u5BA1\u67E5"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-amber-700 text-sm mt-1 m-0" }, "\u2022 \u8003\u8651\u542F\u7528\u989D\u5916\u7684\u5B89\u5168\u63AA\u65BD")), /* @__PURE__ */ React13.createElement(Text10, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u5982\u679C\u60A8\u5BF9\u6B64\u901A\u77E5\u6709\u4EFB\u4F55\u7591\u95EE\uFF0C\u6216\u9700\u8981\u5E2E\u52A9\u4FDD\u62A4\u60A8\u7684\u8D26\u6237\uFF0C\u8BF7\u968F\u65F6\u8054\u7CFB\u6211\u4EEC\u7684\u652F\u6301\u56E2\u961F\u3002"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-gray-600 text-sm mt-6 m-0" }, "\u6B64\u90AE\u4EF6\u7531\u7CFB\u7EDF\u81EA\u52A8\u53D1\u9001\uFF0C\u8BF7\u52FF\u56DE\u590D\u3002", /* @__PURE__ */ React13.createElement("br", null), "ChatTOEIC \u5B89\u5168\u56E2\u961F"), /* @__PURE__ */ React13.createElement(Text10, { className: "text-gray-600 text-sm mt-4 m-0" }, "\u9700\u8981\u5E2E\u52A9\uFF1F\u8BF7\u8054\u7CFB\uFF1A", /* @__PURE__ */ React13.createElement("a", { href: `mailto:${supportEmail}`, className: "text-blue-600 underline ml-1" }, supportEmail))));
+}
+
+// src/emails/templates/notifications/SystemMaintenanceEmail.tsx
+import React14 from "react";
+import { Text as Text11, Section as Section12 } from "@react-email/components";
+var MaintenanceTypeConfig = {
+  scheduled: {
+    title: "\u{1F527} \u7CFB\u7EDF\u7EF4\u62A4\u901A\u77E5",
+    icon: "\u{1F527}",
+    color: "blue",
+    description: "\u6211\u4EEC\u5C06\u8FDB\u884C\u8BA1\u5212\u4E2D\u7684\u7CFB\u7EDF\u7EF4\u62A4"
+  },
+  emergency: {
+    title: "\u26A1 \u7D27\u6025\u7EF4\u62A4\u901A\u77E5",
+    icon: "\u26A1",
+    color: "red",
+    description: "\u7531\u4E8E\u6280\u672F\u95EE\u9898\uFF0C\u6211\u4EEC\u9700\u8981\u8FDB\u884C\u7D27\u6025\u7EF4\u62A4"
+  },
+  completed: {
+    title: "\u2705 \u7EF4\u62A4\u5B8C\u6210\u901A\u77E5",
+    icon: "\u2705",
+    color: "green",
+    description: "\u7CFB\u7EDF\u7EF4\u62A4\u5DF2\u5B8C\u6210\uFF0C\u6240\u6709\u670D\u52A1\u5DF2\u6062\u590D\u6B63\u5E38"
+  }
+};
+function SystemMaintenanceEmail({
+  userName,
+  maintenanceType,
+  startTime,
+  endTime,
+  duration,
+  reason,
+  affectedServices = [],
+  statusPageUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}/status`,
+  supportEmail = "support@chattoeic.com"
+}) {
+  const config = MaintenanceTypeConfig[maintenanceType];
+  return /* @__PURE__ */ React14.createElement(Layout, { preview: `${config.title} - ChatTOEIC` }, /* @__PURE__ */ React14.createElement(Section12, null, /* @__PURE__ */ React14.createElement(Text11, { className: `text-2xl font-bold text-${config.color}-600 mb-4 m-0` }, config.title), /* @__PURE__ */ React14.createElement(Text11, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u4EB2\u7231\u7684 ", /* @__PURE__ */ React14.createElement("span", { className: "font-semibold text-blue-600" }, userName), "\uFF0C"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, config.description, "\u3002\u6211\u4EEC\u5BF9\u6B64\u53EF\u80FD\u9020\u6210\u7684\u4E0D\u4FBF\u6DF1\u8868\u6B49\u610F\u3002"), /* @__PURE__ */ React14.createElement(Section12, { className: `bg-${config.color}-50 border border-${config.color}-200 rounded p-4 mb-6` }, /* @__PURE__ */ React14.createElement(Text11, { className: `text-${config.color}-800 text-sm font-semibold m-0` }, config.icon, " \u7EF4\u62A4\u8BE6\u60C5\uFF1A"), /* @__PURE__ */ React14.createElement(Text11, { className: `text-${config.color}-700 text-sm mt-2 mb-1 m-0` }, "\u2022 \u5F00\u59CB\u65F6\u95F4\uFF1A", startTime), endTime && /* @__PURE__ */ React14.createElement(Text11, { className: `text-${config.color}-700 text-sm my-1 m-0` }, "\u2022 \u7ED3\u675F\u65F6\u95F4\uFF1A", endTime), duration && /* @__PURE__ */ React14.createElement(Text11, { className: `text-${config.color}-700 text-sm my-1 m-0` }, "\u2022 \u9884\u8BA1\u65F6\u957F\uFF1A", duration), reason && /* @__PURE__ */ React14.createElement(Text11, { className: `text-${config.color}-700 text-sm mt-1 m-0` }, "\u2022 \u7EF4\u62A4\u539F\u56E0\uFF1A", reason)), affectedServices.length > 0 && /* @__PURE__ */ React14.createElement(Section12, { className: "bg-amber-50 border border-amber-200 rounded p-4 mb-6" }, /* @__PURE__ */ React14.createElement(Text11, { className: "text-amber-800 text-sm font-semibold m-0" }, "\u{1F504} \u53D7\u5F71\u54CD\u7684\u670D\u52A1\uFF1A"), affectedServices.map((service, index) => /* @__PURE__ */ React14.createElement(Text11, { key: index, className: "text-amber-700 text-sm my-1 m-0" }, "\u2022 ", service))), maintenanceType === "scheduled" && /* @__PURE__ */ React14.createElement(React14.Fragment, null, /* @__PURE__ */ React14.createElement(Text11, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, /* @__PURE__ */ React14.createElement("strong", null, "\u7EF4\u62A4\u671F\u95F4\uFF1A")), /* @__PURE__ */ React14.createElement(Text11, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u2022 \u60A8\u53EF\u80FD\u65E0\u6CD5\u8BBF\u95EEChatTOEIC\u670D\u52A1"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u2022 \u5B66\u4E60\u8FDB\u5EA6\u548C\u6570\u636E\u5C06\u88AB\u5B89\u5168\u4FDD\u5B58"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-gray-700 text-base leading-6 mb-6 m-0" }, "\u2022 \u7EF4\u62A4\u5B8C\u6210\u540E\u6240\u6709\u529F\u80FD\u5C06\u7ACB\u5373\u6062\u590D")), maintenanceType === "emergency" && /* @__PURE__ */ React14.createElement(React14.Fragment, null, /* @__PURE__ */ React14.createElement(Section12, { className: "bg-red-50 border-l-4 border-red-400 p-4 rounded mb-6" }, /* @__PURE__ */ React14.createElement(Text11, { className: "text-red-800 text-sm font-semibold m-0" }, "\u{1F6A8} \u7D27\u6025\u7EF4\u62A4\u901A\u77E5\uFF1A"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-red-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u6211\u4EEC\u6B63\u5728\u5904\u7406\u4E00\u4E2A\u5F71\u54CD\u670D\u52A1\u7A33\u5B9A\u6027\u7684\u95EE\u9898"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-red-700 text-sm my-1 m-0" }, "\u2022 \u7EF4\u62A4\u671F\u95F4\u90E8\u5206\u6216\u5168\u90E8\u529F\u80FD\u53EF\u80FD\u6682\u65F6\u4E0D\u53EF\u7528"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-red-700 text-sm my-1 m-0" }, "\u2022 \u6211\u4EEC\u6B63\u5728\u52AA\u529B\u5C3D\u5FEB\u6062\u590D\u6B63\u5E38\u670D\u52A1"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-red-700 text-sm mt-1 m-0" }, "\u2022 \u60A8\u7684\u5B66\u4E60\u6570\u636E\u4E0D\u4F1A\u53D7\u5230\u5F71\u54CD"))), maintenanceType === "completed" && /* @__PURE__ */ React14.createElement(React14.Fragment, null, /* @__PURE__ */ React14.createElement(Section12, { className: "bg-green-50 border border-green-200 rounded p-4 mb-6" }, /* @__PURE__ */ React14.createElement(Text11, { className: "text-green-800 text-sm font-semibold m-0" }, "\u{1F389} \u7EF4\u62A4\u5B8C\u6210\uFF1A"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-green-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u6240\u6709\u7CFB\u7EDF\u5DF2\u6062\u590D\u6B63\u5E38\u8FD0\u884C"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-green-700 text-sm my-1 m-0" }, "\u2022 \u60A8\u73B0\u5728\u53EF\u4EE5\u6B63\u5E38\u4F7F\u7528ChatTOEIC\u7684\u6240\u6709\u529F\u80FD"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-green-700 text-sm my-1 m-0" }, "\u2022 \u60A8\u7684\u5B66\u4E60\u6570\u636E\u548C\u8FDB\u5EA6\u5B8C\u5168\u4FDD\u6301\u4E0D\u53D8"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-green-700 text-sm mt-1 m-0" }, "\u2022 \u611F\u8C22\u60A8\u5728\u7EF4\u62A4\u671F\u95F4\u7684\u8010\u5FC3\u7B49\u5F85")), /* @__PURE__ */ React14.createElement(Section12, { className: "text-center mb-6" }, /* @__PURE__ */ React14.createElement(Button, { href: process.env.FRONTEND_URL || "https://www.chattoeic.com" }, "\u7EE7\u7EED\u5B66\u4E60"))), maintenanceType !== "completed" && /* @__PURE__ */ React14.createElement(Section12, { className: "bg-blue-50 border border-blue-200 rounded p-4 mb-6" }, /* @__PURE__ */ React14.createElement(Text11, { className: "text-blue-800 text-sm font-semibold m-0" }, "\u{1F4F1} \u7EF4\u62A4\u671F\u95F4\u5EFA\u8BAE\uFF1A"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-blue-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u4FDD\u5B58\u5F53\u524D\u7684\u5B66\u4E60\u8FDB\u5EA6"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u53EF\u4EE5\u5229\u7528\u6B64\u65F6\u95F4\u590D\u4E60\u4E4B\u524D\u7684\u5B66\u4E60\u5185\u5BB9"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-blue-700 text-sm my-1 m-0" }, "\u2022 \u5173\u6CE8\u6211\u4EEC\u7684\u72B6\u6001\u9875\u9762\u83B7\u53D6\u6700\u65B0\u66F4\u65B0"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-blue-700 text-sm mt-1 m-0" }, "\u2022 \u7EF4\u62A4\u5B8C\u6210\u540E\u4F1A\u6536\u5230\u901A\u77E5\u90AE\u4EF6")), /* @__PURE__ */ React14.createElement(Text11, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u6211\u4EEC\u7406\u89E3\u670D\u52A1\u4E2D\u65AD\u53EF\u80FD\u4F1A\u7ED9\u60A8\u7684\u5B66\u4E60\u8BA1\u5212\u5E26\u6765\u4E0D\u4FBF\uFF0C\u6211\u4EEC\u6B63\u5728\u52AA\u529B\u63D0\u4F9B\u66F4\u7A33\u5B9A\u548C\u4F18\u8D28\u7684\u670D\u52A1\u3002"), /* @__PURE__ */ React14.createElement(Section12, { className: "text-center mb-6" }, /* @__PURE__ */ React14.createElement(Button, { href: statusPageUrl, variant: "secondary" }, "\u67E5\u770B\u7CFB\u7EDF\u72B6\u6001")), /* @__PURE__ */ React14.createElement(Section12, { className: "bg-gray-50 border border-gray-200 rounded p-4 mb-6" }, /* @__PURE__ */ React14.createElement(Text11, { className: "text-gray-800 text-sm font-semibold m-0" }, "\u{1F4AC} \u9700\u8981\u5E2E\u52A9\uFF1F"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-gray-700 text-sm mt-2 mb-1 m-0" }, "\u5982\u679C\u60A8\u5728\u7EF4\u62A4\u671F\u95F4\u6216\u4E4B\u540E\u9047\u5230\u4EFB\u4F55\u95EE\u9898\uFF0C\u8BF7\u968F\u65F6\u8054\u7CFB\u6211\u4EEC\uFF1A"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-gray-700 text-sm my-1 m-0" }, "\u{1F4E7} \u90AE\u7BB1\uFF1A", supportEmail), /* @__PURE__ */ React14.createElement(Text11, { className: "text-gray-700 text-sm mt-1 m-0" }, "\u{1F310} \u72B6\u6001\u9875\u9762\uFF1A", statusPageUrl)), /* @__PURE__ */ React14.createElement(Text11, { className: "text-gray-600 text-sm mt-6 m-0" }, "\u611F\u8C22\u60A8\u5BF9ChatTOEIC\u7684\u652F\u6301\u4E0E\u7406\u89E3\uFF01", /* @__PURE__ */ React14.createElement("br", null), "ChatTOEIC \u6280\u672F\u56E2\u961F"), /* @__PURE__ */ React14.createElement(Text11, { className: "text-gray-600 text-sm mt-4 m-0" }, "\u6B64\u90AE\u4EF6\u7531\u7CFB\u7EDF\u81EA\u52A8\u53D1\u9001\uFF0C\u8BF7\u52FF\u56DE\u590D\u3002\u5982\u9700\u8054\u7CFB\u6211\u4EEC\uFF0C\u8BF7\u4F7F\u7528\u4E0A\u8FF0\u8054\u7CFB\u65B9\u5F0F\u3002")));
+}
+
+// src/emails/templates/notifications/AccountActivityEmail.tsx
+import React15 from "react";
+import { Text as Text12, Section as Section13 } from "@react-email/components";
+var PeriodTypeConfig = {
+  weekly: {
+    title: "\u{1F4CA} \u672C\u5468\u5B66\u4E60\u62A5\u544A",
+    icon: "\u{1F4CA}",
+    color: "blue",
+    greeting: "\u672C\u5468\u60A8\u7684\u5B66\u4E60\u8868\u73B0\u5982\u4E0B"
+  },
+  monthly: {
+    title: "\u{1F4C8} \u672C\u6708\u5B66\u4E60\u603B\u7ED3",
+    icon: "\u{1F4C8}",
+    color: "green",
+    greeting: "\u606D\u559C\u60A8\u5B8C\u6210\u4E86\u4E00\u4E2A\u6708\u7684\u5B66\u4E60"
+  },
+  yearly: {
+    title: "\u{1F3C6} \u5E74\u5EA6\u5B66\u4E60\u6210\u5C31",
+    icon: "\u{1F3C6}",
+    color: "purple",
+    greeting: "\u8BA9\u6211\u4EEC\u4E00\u8D77\u56DE\u987E\u60A8\u8FD9\u4E00\u5E74\u7684\u5B66\u4E60\u6210\u5C31"
+  }
+};
+function AccountActivityEmail({
+  userName,
+  periodType,
+  periodStart,
+  periodEnd,
+  activityData,
+  topAchievements = [],
+  recommendations = [],
+  dashboardUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}/dashboard`
+}) {
+  const config = PeriodTypeConfig[periodType];
+  return /* @__PURE__ */ React15.createElement(Layout, { preview: `${config.title} - ${userName}` }, /* @__PURE__ */ React15.createElement(Section13, null, /* @__PURE__ */ React15.createElement(Text12, { className: `text-2xl font-bold text-${config.color}-600 mb-4 m-0` }, config.title), /* @__PURE__ */ React15.createElement(Text12, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u4EB2\u7231\u7684 ", /* @__PURE__ */ React15.createElement("span", { className: "font-semibold text-blue-600" }, userName), "\uFF0C"), /* @__PURE__ */ React15.createElement(Text12, { className: "text-gray-700 text-base leading-6 mb-6 m-0" }, config.greeting, "\uFF08", periodStart, " - ", periodEnd, "\uFF09\uFF1A"), /* @__PURE__ */ React15.createElement(Section13, { className: `bg-${config.color}-50 border border-${config.color}-200 rounded p-4 mb-6` }, /* @__PURE__ */ React15.createElement(Text12, { className: `text-${config.color}-800 text-lg font-semibold mb-3 m-0` }, config.icon, " \u5B66\u4E60\u7EDF\u8BA1"), /* @__PURE__ */ React15.createElement("div", { className: "grid grid-cols-2 gap-4 mb-4" }, /* @__PURE__ */ React15.createElement("div", { className: `bg-white border border-${config.color}-100 rounded p-3` }, /* @__PURE__ */ React15.createElement(Text12, { className: `text-${config.color}-600 text-sm font-medium m-0` }, "\u7EC3\u4E60\u6B21\u6570"), /* @__PURE__ */ React15.createElement(Text12, { className: `text-2xl font-bold text-${config.color}-800 mt-1 m-0` }, activityData.practiceCount)), /* @__PURE__ */ React15.createElement("div", { className: `bg-white border border-${config.color}-100 rounded p-3` }, /* @__PURE__ */ React15.createElement(Text12, { className: `text-${config.color}-600 text-sm font-medium m-0` }, "\u5B66\u4E60\u65F6\u957F"), /* @__PURE__ */ React15.createElement(Text12, { className: `text-2xl font-bold text-${config.color}-800 mt-1 m-0` }, activityData.studyHours, "h")), /* @__PURE__ */ React15.createElement("div", { className: `bg-white border border-${config.color}-100 rounded p-3` }, /* @__PURE__ */ React15.createElement(Text12, { className: `text-${config.color}-600 text-sm font-medium m-0` }, "\u7B54\u9898\u6570\u91CF"), /* @__PURE__ */ React15.createElement(Text12, { className: `text-2xl font-bold text-${config.color}-800 mt-1 m-0` }, activityData.questionsAnswered)), /* @__PURE__ */ React15.createElement("div", { className: `bg-white border border-${config.color}-100 rounded p-3` }, /* @__PURE__ */ React15.createElement(Text12, { className: `text-${config.color}-600 text-sm font-medium m-0` }, "\u6B63\u786E\u7387"), /* @__PURE__ */ React15.createElement(Text12, { className: `text-2xl font-bold text-${config.color}-800 mt-1 m-0` }, activityData.correctRate, "%"))), /* @__PURE__ */ React15.createElement("div", { className: "grid grid-cols-3 gap-4" }, /* @__PURE__ */ React15.createElement("div", { className: `bg-white border border-${config.color}-100 rounded p-3` }, /* @__PURE__ */ React15.createElement(Text12, { className: `text-${config.color}-600 text-sm font-medium m-0` }, "\u8FDE\u7EED\u5929\u6570"), /* @__PURE__ */ React15.createElement(Text12, { className: `text-xl font-bold text-${config.color}-800 mt-1 m-0` }, activityData.streakDays, "\u5929")), /* @__PURE__ */ React15.createElement("div", { className: `bg-white border border-${config.color}-100 rounded p-3` }, /* @__PURE__ */ React15.createElement(Text12, { className: `text-${config.color}-600 text-sm font-medium m-0` }, "\u65B0\u5B66\u5355\u8BCD"), /* @__PURE__ */ React15.createElement(Text12, { className: `text-xl font-bold text-${config.color}-800 mt-1 m-0` }, activityData.newWords, "\u4E2A")), /* @__PURE__ */ React15.createElement("div", { className: `bg-white border border-${config.color}-100 rounded p-3` }, /* @__PURE__ */ React15.createElement(Text12, { className: `text-${config.color}-600 text-sm font-medium m-0` }, "\u83B7\u5F97\u6210\u5C31"), /* @__PURE__ */ React15.createElement(Text12, { className: `text-xl font-bold text-${config.color}-800 mt-1 m-0` }, activityData.achievementsUnlocked, "\u4E2A")))), topAchievements.length > 0 && /* @__PURE__ */ React15.createElement(Section13, { className: "bg-yellow-50 border border-yellow-200 rounded p-4 mb-6" }, /* @__PURE__ */ React15.createElement(Text12, { className: "text-yellow-800 text-lg font-semibold mb-3 m-0" }, "\u{1F3C5} \u672C\u671F\u4EAE\u70B9\u6210\u5C31"), topAchievements.map((achievement, index) => /* @__PURE__ */ React15.createElement(Text12, { key: index, className: "text-yellow-700 text-sm my-2 m-0" }, "\u2728 ", achievement))), /* @__PURE__ */ React15.createElement(Section13, { className: "bg-green-50 border border-green-200 rounded p-4 mb-6" }, /* @__PURE__ */ React15.createElement(Text12, { className: "text-green-800 text-lg font-semibold mb-3 m-0" }, "\u{1F3AF} \u5B66\u4E60\u8FDB\u5EA6\u8BC4\u4EF7"), activityData.correctRate >= 80 && /* @__PURE__ */ React15.createElement(Text12, { className: "text-green-700 text-sm mb-2 m-0" }, "\u{1F31F} \u592A\u68D2\u4E86\uFF01\u60A8\u7684\u6B63\u786E\u7387\u8FBE\u5230\u4E86 ", activityData.correctRate, "%\uFF0C\u5C55\u73B0\u4E86\u4F18\u79C0\u7684\u5B66\u4E60\u6210\u679C\uFF01"), activityData.streakDays >= 7 && /* @__PURE__ */ React15.createElement(Text12, { className: "text-green-700 text-sm mb-2 m-0" }, "\u{1F525} \u575A\u6301\u4E86 ", activityData.streakDays, " \u5929\u8FDE\u7EED\u5B66\u4E60\uFF0C\u60A8\u7684\u6BC5\u529B\u4EE4\u4EBA\u656C\u4F69\uFF01"), activityData.studyHours >= 10 && /* @__PURE__ */ React15.createElement(Text12, { className: "text-green-700 text-sm mb-2 m-0" }, "\u23F0 \u672C\u671F\u6295\u5165\u4E86 ", activityData.studyHours, " \u5C0F\u65F6\u5B66\u4E60\u65F6\u95F4\uFF0C\u52E4\u594B\u7684\u4ED8\u51FA\u5FC5\u6709\u56DE\u62A5\uFF01"), activityData.newWords >= 50 && /* @__PURE__ */ React15.createElement(Text12, { className: "text-green-700 text-sm mb-2 m-0" }, "\u{1F4DA} \u5B66\u4F1A\u4E86 ", activityData.newWords, " \u4E2A\u65B0\u5355\u8BCD\uFF0C\u8BCD\u6C47\u91CF\u7A33\u6B65\u63D0\u5347\uFF01")), recommendations.length > 0 && /* @__PURE__ */ React15.createElement(Section13, { className: "bg-blue-50 border border-blue-200 rounded p-4 mb-6" }, /* @__PURE__ */ React15.createElement(Text12, { className: "text-blue-800 text-lg font-semibold mb-3 m-0" }, "\u{1F4A1} \u4E2A\u6027\u5316\u5EFA\u8BAE"), recommendations.map((recommendation, index) => /* @__PURE__ */ React15.createElement(Text12, { key: index, className: "text-blue-700 text-sm my-2 m-0" }, "\u2022 ", recommendation))), /* @__PURE__ */ React15.createElement(Section13, { className: "bg-purple-50 border border-purple-200 rounded p-4 mb-6" }, /* @__PURE__ */ React15.createElement(Text12, { className: "text-purple-800 text-lg font-semibold mb-3 m-0" }, "\u{1F3AF} ", periodType === "weekly" ? "\u4E0B\u5468" : periodType === "monthly" ? "\u4E0B\u6708" : "\u6765\u5E74", "\u76EE\u6807\u5EFA\u8BAE"), activityData.correctRate < 80 && /* @__PURE__ */ React15.createElement(Text12, { className: "text-purple-700 text-sm mb-2 m-0" }, "\u{1F4C8} \u63D0\u9AD8\u7B54\u9898\u6B63\u786E\u7387\u81F380%\u4EE5\u4E0A\uFF0C\u5EFA\u8BAE\u591A\u505A\u9519\u9898\u590D\u4E60"), activityData.streakDays < 5 && /* @__PURE__ */ React15.createElement(Text12, { className: "text-purple-700 text-sm mb-2 m-0" }, "\u{1F3AF} \u4FDD\u6301\u6BCF\u65E5\u5B66\u4E60\u4E60\u60EF\uFF0C\u76EE\u6807\u8FDE\u7EED\u5B66\u4E607\u5929"), /* @__PURE__ */ React15.createElement(Text12, { className: "text-purple-700 text-sm mb-2 m-0" }, "\u{1F4DA} \u638C\u63E1\u66F4\u591A\u65B0\u8BCD\u6C47\uFF0C\u6269\u5927\u8BCD\u6C47\u50A8\u5907"), /* @__PURE__ */ React15.createElement(Text12, { className: "text-purple-700 text-sm mb-2 m-0" }, "\u{1F3C6} \u6311\u6218\u66F4\u9AD8\u96BE\u5EA6\u7684\u7EC3\u4E60\uFF0C\u63D0\u5347\u5E94\u8BD5\u80FD\u529B")), /* @__PURE__ */ React15.createElement(Text12, { className: "text-gray-700 text-base leading-6 mb-6 m-0" }, "\u60A8\u7684\u52AA\u529B\u548C\u575A\u6301\u8BA9\u6211\u4EEC\u6DF1\u611F\u94A6\u4F69\uFF01\u7EE7\u7EED\u52A0\u6CB9\uFF0CChatTOEIC\u5C06\u966A\u4F34\u60A8\u5728\u82F1\u8BED\u5B66\u4E60\u7684\u9053\u8DEF\u4E0A\u4E0D\u65AD\u8FDB\u6B65\u3002"), /* @__PURE__ */ React15.createElement(Section13, { className: "text-center mb-6" }, /* @__PURE__ */ React15.createElement(Button, { href: dashboardUrl }, "\u67E5\u770B\u8BE6\u7EC6\u62A5\u544A")), /* @__PURE__ */ React15.createElement(Text12, { className: "text-gray-600 text-sm mt-6 m-0" }, "\u7EE7\u7EED\u4FDD\u6301\u5B66\u4E60\u7684\u70ED\u60C5\uFF0C\u6210\u529F\u5C31\u5728\u524D\u65B9\uFF01", /* @__PURE__ */ React15.createElement("br", null), "ChatTOEIC \u5B66\u4E60\u56E2\u961F"), /* @__PURE__ */ React15.createElement(Text12, { className: "text-gray-600 text-sm mt-4 m-0" }, "\u5982\u9700\u8C03\u6574\u90AE\u4EF6\u9891\u7387\u6216\u505C\u6B62\u63A5\u6536\u5B66\u4E60\u62A5\u544A\uFF0C\u8BF7\u8BBF\u95EE", /* @__PURE__ */ React15.createElement("a", { href: `${dashboardUrl}/settings/notifications`, className: "text-blue-600 underline ml-1" }, "\u901A\u77E5\u8BBE\u7F6E"))));
+}
+
+// src/emails/templates/notifications/FeatureAnnouncementEmail.tsx
+import React16 from "react";
+import { Text as Text13, Section as Section14, Hr as Hr2 } from "@react-email/components";
+var AnnouncementTypeConfig = {
+  new_feature: {
+    title: "\u{1F680} \u5168\u65B0\u529F\u80FD\u53D1\u5E03",
+    icon: "\u{1F680}",
+    color: "blue",
+    description: "\u6211\u4EEC\u5F88\u9AD8\u5174\u4E3A\u60A8\u5E26\u6765\u5168\u65B0\u7684\u5B66\u4E60\u529F\u80FD"
+  },
+  major_update: {
+    title: "\u26A1 \u91CD\u5927\u66F4\u65B0\u53D1\u5E03",
+    icon: "\u26A1",
+    color: "green",
+    description: "ChatTOEIC\u8FCE\u6765\u4E86\u91CD\u5927\u5347\u7EA7"
+  },
+  beta_release: {
+    title: "\u{1F9EA} Beta\u6D4B\u8BD5\u9080\u8BF7",
+    icon: "\u{1F9EA}",
+    color: "purple",
+    description: "\u9080\u8BF7\u60A8\u4F53\u9A8C\u6211\u4EEC\u7684\u6700\u65B0Beta\u529F\u80FD"
+  }
+};
+function FeatureAnnouncementEmail({
+  userName,
+  announcementType,
+  title,
+  releaseDate,
+  features,
+  ctaText = "\u7ACB\u5373\u4F53\u9A8C",
+  ctaUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}`,
+  videoUrl,
+  blogUrl,
+  feedbackUrl = `${process.env.FRONTEND_URL || "https://www.chattoeic.com"}/feedback`
+}) {
+  const config = AnnouncementTypeConfig[announcementType];
+  return /* @__PURE__ */ React16.createElement(Layout, { preview: `${config.title}: ${title} - ChatTOEIC` }, /* @__PURE__ */ React16.createElement(Section14, null, /* @__PURE__ */ React16.createElement(Text13, { className: `text-2xl font-bold text-${config.color}-600 mb-4 m-0` }, config.title), /* @__PURE__ */ React16.createElement(Text13, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u4EB2\u7231\u7684 ", /* @__PURE__ */ React16.createElement("span", { className: "font-semibold text-blue-600" }, userName), "\uFF0C"), /* @__PURE__ */ React16.createElement(Text13, { className: "text-gray-700 text-base leading-6 mb-6 m-0" }, config.description, "\uFF01", title, "\u5DF2\u4E8E", releaseDate, "\u6B63\u5F0F\u53D1\u5E03\u3002"), /* @__PURE__ */ React16.createElement(Section14, { className: `bg-gradient-to-r from-${config.color}-50 to-${config.color}-100 border border-${config.color}-200 rounded-lg p-6 mb-6` }, /* @__PURE__ */ React16.createElement(Text13, { className: `text-${config.color}-800 text-xl font-bold mb-4 m-0 text-center` }, config.icon, " ", title), features.map((feature, index) => /* @__PURE__ */ React16.createElement("div", { key: index, className: "mb-6" }, /* @__PURE__ */ React16.createElement(Text13, { className: `text-${config.color}-800 text-lg font-semibold mb-2 m-0` }, feature.icon ? `${feature.icon} ` : "\u2728 ", feature.name), /* @__PURE__ */ React16.createElement(Text13, { className: "text-gray-700 text-base mb-3 m-0" }, feature.description), feature.benefits.length > 0 && /* @__PURE__ */ React16.createElement(Section14, { className: `bg-white border border-${config.color}-100 rounded p-3 ml-4` }, /* @__PURE__ */ React16.createElement(Text13, { className: `text-${config.color}-700 text-sm font-medium mb-2 m-0` }, "\u{1F4A1} \u4E3A\u60A8\u5E26\u6765\u7684\u4EF7\u503C\uFF1A"), feature.benefits.map((benefit, benefitIndex) => /* @__PURE__ */ React16.createElement(Text13, { key: benefitIndex, className: `text-${config.color}-600 text-sm my-1 m-0` }, "\u2022 ", benefit))), index < features.length - 1 && /* @__PURE__ */ React16.createElement(Hr2, { className: "my-4 border-gray-200" })))), /* @__PURE__ */ React16.createElement(Section14, { className: "bg-blue-50 border border-blue-200 rounded p-4 mb-6" }, /* @__PURE__ */ React16.createElement(Text13, { className: "text-blue-800 text-lg font-semibold mb-3 m-0" }, "\u{1F3AF} \u5982\u4F55\u5F00\u59CB\u4F7F\u7528\uFF1F"), /* @__PURE__ */ React16.createElement(Text13, { className: "text-blue-700 text-sm mb-2 m-0" }, "1. \u70B9\u51FB\u4E0B\u65B9\u6309\u94AE\u767B\u5F55\u60A8\u7684ChatTOEIC\u8D26\u6237"), /* @__PURE__ */ React16.createElement(Text13, { className: "text-blue-700 text-sm mb-2 m-0" }, "2. \u5728\u5BFC\u822A\u83DC\u5355\u4E2D\u627E\u5230\u65B0\u529F\u80FD\u5165\u53E3"), /* @__PURE__ */ React16.createElement(Text13, { className: "text-blue-700 text-sm mb-2 m-0" }, "3. \u6309\u7167\u5F15\u5BFC\u63D0\u793A\u5F00\u59CB\u4F53\u9A8C\u65B0\u529F\u80FD"), /* @__PURE__ */ React16.createElement(Text13, { className: "text-blue-700 text-sm mb-2 m-0" }, "4. \u6709\u95EE\u9898\u968F\u65F6\u8054\u7CFB\u6211\u4EEC\u7684\u652F\u6301\u56E2\u961F")), announcementType === "beta_release" && /* @__PURE__ */ React16.createElement(Section14, { className: "bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded mb-6" }, /* @__PURE__ */ React16.createElement(Text13, { className: "text-yellow-800 text-sm font-semibold m-0" }, "\u{1F9EA} Beta\u6D4B\u8BD5\u6CE8\u610F\u4E8B\u9879\uFF1A"), /* @__PURE__ */ React16.createElement(Text13, { className: "text-yellow-700 text-sm mt-2 mb-1 m-0" }, "\u2022 \u8FD9\u662F\u6D4B\u8BD5\u7248\u672C\uFF0C\u53EF\u80FD\u5B58\u5728\u4E00\u4E9B\u5C0F\u95EE\u9898"), /* @__PURE__ */ React16.createElement(Text13, { className: "text-yellow-700 text-sm my-1 m-0" }, "\u2022 \u60A8\u7684\u53CD\u9988\u5BF9\u6211\u4EEC\u6539\u8FDB\u4EA7\u54C1\u81F3\u5173\u91CD\u8981"), /* @__PURE__ */ React16.createElement(Text13, { className: "text-yellow-700 text-sm my-1 m-0" }, "\u2022 Beta\u529F\u80FD\u53EF\u80FD\u5728\u6B63\u5F0F\u7248\u672C\u4E2D\u6709\u6240\u8C03\u6574"), /* @__PURE__ */ React16.createElement(Text13, { className: "text-yellow-700 text-sm mt-1 m-0" }, "\u2022 \u611F\u8C22\u60A8\u53C2\u4E0E\u6D4B\u8BD5\u5E76\u63D0\u4F9B\u5B9D\u8D35\u610F\u89C1")), /* @__PURE__ */ React16.createElement(Section14, { className: "text-center mb-6" }, /* @__PURE__ */ React16.createElement(Button, { href: ctaUrl, className: "mb-4" }, ctaText), videoUrl && /* @__PURE__ */ React16.createElement(Button, { href: videoUrl, variant: "secondary", className: "ml-4" }, "\u89C2\u770B\u6F14\u793A\u89C6\u9891")), (blogUrl || feedbackUrl) && /* @__PURE__ */ React16.createElement(Section14, { className: "bg-gray-50 border border-gray-200 rounded p-4 mb-6" }, /* @__PURE__ */ React16.createElement(Text13, { className: "text-gray-800 text-sm font-semibold mb-3 m-0" }, "\u{1F4DA} \u66F4\u591A\u8D44\u6E90\uFF1A"), blogUrl && /* @__PURE__ */ React16.createElement(Text13, { className: "text-gray-700 text-sm mb-2 m-0" }, "\u{1F4D6} ", /* @__PURE__ */ React16.createElement("a", { href: blogUrl, className: "text-blue-600 underline" }, "\u9605\u8BFB\u8BE6\u7EC6\u529F\u80FD\u4ECB\u7ECD")), /* @__PURE__ */ React16.createElement(Text13, { className: "text-gray-700 text-sm mb-2 m-0" }, "\u{1F4AC} ", /* @__PURE__ */ React16.createElement("a", { href: feedbackUrl, className: "text-blue-600 underline" }, "\u5206\u4EAB\u60A8\u7684\u4F7F\u7528\u4F53\u9A8C")), /* @__PURE__ */ React16.createElement(Text13, { className: "text-gray-700 text-sm mb-2 m-0" }, "\u{1F4E7} ", /* @__PURE__ */ React16.createElement("a", { href: "mailto:support@chattoeic.com", className: "text-blue-600 underline" }, "\u8054\u7CFB\u6280\u672F\u652F\u6301"))), /* @__PURE__ */ React16.createElement(Section14, { className: "bg-green-50 border border-green-200 rounded p-4 mb-6" }, /* @__PURE__ */ React16.createElement(Text13, { className: "text-green-800 text-sm font-semibold m-0" }, "\u{1F64F} \u611F\u8C22\u60A8\u7684\u652F\u6301"), /* @__PURE__ */ React16.createElement(Text13, { className: "text-green-700 text-sm mt-2 m-0" }, "\u6BCF\u4E00\u4E2A\u65B0\u529F\u80FD\u7684\u8BDE\u751F\u90FD\u79BB\u4E0D\u5F00\u7528\u6237\u7684\u652F\u6301\u548C\u53CD\u9988\u3002\u6211\u4EEC\u4F1A\u7EE7\u7EED\u52AA\u529B\uFF0C\u4E3A\u60A8\u63D0\u4F9B\u66F4\u4F18\u8D28\u7684\u5B66\u4E60\u4F53\u9A8C\u3002 \u60A8\u7684\u6210\u529F\u5C31\u662F\u6211\u4EEC\u6700\u5927\u7684\u52A8\u529B\uFF01")), /* @__PURE__ */ React16.createElement(Text13, { className: "text-gray-700 text-base leading-6 mb-4 m-0" }, "\u6211\u4EEC\u76F8\u4FE1\u8FD9\u4E9B\u65B0\u529F\u80FD\u5C06\u5E2E\u52A9\u60A8\u66F4\u9AD8\u6548\u5730\u5B66\u4E60TOEIC\uFF0C\u65E9\u65E5\u8FBE\u6210\u60A8\u7684\u76EE\u6807\u5206\u6570\uFF01"), announcementType === "beta_release" && /* @__PURE__ */ React16.createElement(Section14, { className: "text-center mb-6" }, /* @__PURE__ */ React16.createElement(Button, { href: feedbackUrl, variant: "secondary" }, "\u63D0\u4F9BBeta\u53CD\u9988")), /* @__PURE__ */ React16.createElement(Text13, { className: "text-gray-600 text-sm mt-6 m-0" }, "\u671F\u5F85\u60A8\u7684\u4F53\u9A8C\u548C\u53CD\u9988\uFF01", /* @__PURE__ */ React16.createElement("br", null), "ChatTOEIC \u4EA7\u54C1\u56E2\u961F"), /* @__PURE__ */ React16.createElement(Text13, { className: "text-gray-600 text-sm mt-4 m-0" }, "\u5982\u4E0D\u5E0C\u671B\u63A5\u6536\u529F\u80FD\u66F4\u65B0\u901A\u77E5\uFF0C\u8BF7\u8BBF\u95EE", /* @__PURE__ */ React16.createElement("a", { href: `${ctaUrl}/settings/notifications`, className: "text-blue-600 underline ml-1" }, "\u901A\u77E5\u8BBE\u7F6E"), "\u8FDB\u884C\u8C03\u6574\u3002")));
+}
+
+// src/services/notificationEmailService.ts
+var NotificationEmailService = class {
+  /**
+   * 发送安全警报邮件
+   */
+  async sendSecurityAlert(email, userName, alertType, options = {}) {
+    try {
+      const alertTime = (/* @__PURE__ */ new Date()).toLocaleString("zh-CN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Shanghai"
+      });
+      const emailTemplate = React17.createElement(SecurityAlertEmail, {
+        userName,
+        alertType,
+        alertTime,
+        location: options.location,
+        ipAddress: options.ipAddress,
+        userAgent: options.userAgent,
+        actionUrl: options.actionUrl
+      });
+      const subjectMap = {
+        login: "\u65B0\u8BBE\u5907\u767B\u5F55\u901A\u77E5",
+        password_change: "\u5BC6\u7801\u53D8\u66F4\u901A\u77E5",
+        email_change: "\u90AE\u7BB1\u53D8\u66F4\u901A\u77E5",
+        suspicious_activity: "\u8D26\u6237\u5B89\u5168\u8B66\u62A5"
+      };
+      const result = await emailService.sendEmail({
+        to: email,
+        subject: `${subjectMap[alertType]} - ChatTOEIC`,
+        template: emailTemplate
+      });
+      if (result.success) {
+        console.log(`\u{1F4E7} Security alert email sent (${alertType}):`, {
+          email,
+          userName,
+          alertType,
+          emailId: result.id
+        });
+      }
+      return {
+        success: result.success,
+        emailId: result.id,
+        error: result.error
+      };
+    } catch (error) {
+      console.error("\u274C Failed to send security alert email:", error);
+      return {
+        success: false,
+        error: error.message || "unknown_error"
+      };
+    }
+  }
+  /**
+   * 发送系统维护通知邮件
+   */
+  async sendSystemMaintenance(email, userName, maintenanceType, options) {
+    try {
+      const emailTemplate = React17.createElement(SystemMaintenanceEmail, {
+        userName,
+        maintenanceType,
+        startTime: options.startTime,
+        endTime: options.endTime,
+        duration: options.duration,
+        reason: options.reason,
+        affectedServices: options.affectedServices,
+        statusPageUrl: options.statusPageUrl
+      });
+      const subjectMap = {
+        scheduled: "\u7CFB\u7EDF\u7EF4\u62A4\u901A\u77E5",
+        emergency: "\u7D27\u6025\u7EF4\u62A4\u901A\u77E5",
+        completed: "\u7EF4\u62A4\u5B8C\u6210\u901A\u77E5"
+      };
+      const result = await emailService.sendEmail({
+        to: email,
+        subject: `${subjectMap[maintenanceType]} - ChatTOEIC`,
+        template: emailTemplate
+      });
+      if (result.success) {
+        console.log(`\u{1F527} System maintenance email sent (${maintenanceType}):`, {
+          email,
+          userName,
+          maintenanceType,
+          emailId: result.id
+        });
+      }
+      return {
+        success: result.success,
+        emailId: result.id,
+        error: result.error
+      };
+    } catch (error) {
+      console.error("\u274C Failed to send system maintenance email:", error);
+      return {
+        success: false,
+        error: error.message || "unknown_error"
+      };
+    }
+  }
+  /**
+   * 发送账户活动报告邮件
+   */
+  async sendAccountActivity(email, userName, periodType, activityData, options) {
+    try {
+      const emailTemplate = React17.createElement(AccountActivityEmail, {
+        userName,
+        periodType,
+        periodStart: options.periodStart,
+        periodEnd: options.periodEnd,
+        activityData,
+        topAchievements: options.topAchievements,
+        recommendations: options.recommendations,
+        dashboardUrl: options.dashboardUrl
+      });
+      const subjectMap = {
+        weekly: "\u672C\u5468\u5B66\u4E60\u62A5\u544A",
+        monthly: "\u672C\u6708\u5B66\u4E60\u603B\u7ED3",
+        yearly: "\u5E74\u5EA6\u5B66\u4E60\u6210\u5C31\u62A5\u544A"
+      };
+      const result = await emailService.sendEmail({
+        to: email,
+        subject: `${subjectMap[periodType]} - ChatTOEIC`,
+        template: emailTemplate
+      });
+      if (result.success) {
+        console.log(`\u{1F4CA} Account activity email sent (${periodType}):`, {
+          email,
+          userName,
+          periodType,
+          emailId: result.id
+        });
+      }
+      return {
+        success: result.success,
+        emailId: result.id,
+        error: result.error
+      };
+    } catch (error) {
+      console.error("\u274C Failed to send account activity email:", error);
+      return {
+        success: false,
+        error: error.message || "unknown_error"
+      };
+    }
+  }
+  /**
+   * 发送功能发布公告邮件
+   */
+  async sendFeatureAnnouncement(email, userName, announcementType, options) {
+    try {
+      const emailTemplate = React17.createElement(FeatureAnnouncementEmail, {
+        userName,
+        announcementType,
+        title: options.title,
+        releaseDate: options.releaseDate,
+        features: options.features,
+        ctaText: options.ctaText,
+        ctaUrl: options.ctaUrl,
+        videoUrl: options.videoUrl,
+        blogUrl: options.blogUrl,
+        feedbackUrl: options.feedbackUrl
+      });
+      const subjectMap = {
+        new_feature: "\u5168\u65B0\u529F\u80FD\u53D1\u5E03",
+        major_update: "\u91CD\u5927\u66F4\u65B0\u53D1\u5E03",
+        beta_release: "Beta\u6D4B\u8BD5\u9080\u8BF7"
+      };
+      const result = await emailService.sendEmail({
+        to: email,
+        subject: `${subjectMap[announcementType]}: ${options.title} - ChatTOEIC`,
+        template: emailTemplate
+      });
+      if (result.success) {
+        console.log(`\u{1F680} Feature announcement email sent (${announcementType}):`, {
+          email,
+          userName,
+          announcementType,
+          title: options.title,
+          emailId: result.id
+        });
+      }
+      return {
+        success: result.success,
+        emailId: result.id,
+        error: result.error
+      };
+    } catch (error) {
+      console.error("\u274C Failed to send feature announcement email:", error);
+      return {
+        success: false,
+        error: error.message || "unknown_error"
+      };
+    }
+  }
+  /**
+   * 批量发送通知邮件
+   */
+  async sendBatchNotification(recipients, emailType, emailData) {
+    try {
+      console.log(`\u{1F4EC} Starting batch ${emailType} notification for ${recipients.length} recipients`);
+      const results = await Promise.all(
+        recipients.map(async (recipient) => {
+          try {
+            let result;
+            switch (emailType) {
+              case "security_alert":
+                result = await this.sendSecurityAlert(
+                  recipient.email,
+                  recipient.userName,
+                  emailData.alertType,
+                  emailData.options
+                );
+                break;
+              case "maintenance":
+                result = await this.sendSystemMaintenance(
+                  recipient.email,
+                  recipient.userName,
+                  emailData.maintenanceType,
+                  emailData.options
+                );
+                break;
+              case "activity":
+                result = await this.sendAccountActivity(
+                  recipient.email,
+                  recipient.userName,
+                  emailData.periodType,
+                  emailData.activityData,
+                  emailData.options
+                );
+                break;
+              case "announcement":
+                result = await this.sendFeatureAnnouncement(
+                  recipient.email,
+                  recipient.userName,
+                  emailData.announcementType,
+                  emailData.options
+                );
+                break;
+              default:
+                throw new Error(`Unknown email type: ${emailType}`);
+            }
+            return {
+              email: recipient.email,
+              success: result.success,
+              error: result.error
+            };
+          } catch (error) {
+            return {
+              email: recipient.email,
+              success: false,
+              error: error.message
+            };
+          }
+        })
+      );
+      const successCount = results.filter((r) => r.success).length;
+      const failureCount = results.length - successCount;
+      console.log(`\u{1F4CA} Batch notification completed:`, {
+        emailType,
+        total: recipients.length,
+        success: successCount,
+        failures: failureCount
+      });
+      return {
+        success: failureCount === 0,
+        successCount,
+        failureCount,
+        results
+      };
+    } catch (error) {
+      console.error("\u274C Batch notification failed:", error);
+      return {
+        success: false,
+        successCount: 0,
+        failureCount: recipients.length,
+        results: recipients.map((r) => ({
+          email: r.email,
+          success: false,
+          error: error.message
+        }))
+      };
+    }
+  }
+  /**
+   * 获取通知邮件统计信息
+   */
+  getNotificationStats() {
+    return {
+      totalSent: 0,
+      byType: {},
+      lastSent: void 0
+    };
+  }
+};
+var notificationEmailService = new NotificationEmailService();
+
+// src/routes/notifications.ts
+import { z } from "zod";
+var router17 = Router17();
+var requireAdmin4 = async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { role: true }
+    });
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        error: "\u9700\u8981\u7BA1\u7406\u5458\u6743\u9650"
+      });
+    }
+    next();
+  } catch (error) {
+    console.error("Admin check error:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u6743\u9650\u9A8C\u8BC1\u5931\u8D25"
+    });
+  }
+};
+var securityAlertSchema = z.object({
+  recipients: z.array(z.string().email()).optional(),
+  userIds: z.array(z.string().uuid()).optional(),
+  alertType: z.enum(["login", "password_change", "email_change", "suspicious_activity"]),
+  options: z.object({
+    location: z.string().optional(),
+    ipAddress: z.string().optional(),
+    userAgent: z.string().optional(),
+    actionUrl: z.string().url().optional()
+  }).optional()
+}).refine((data) => data.recipients || data.userIds, {
+  message: "\u5FC5\u987B\u63D0\u4F9B recipients \u6216 userIds \u4E4B\u4E00"
+});
+var maintenanceSchema = z.object({
+  recipients: z.array(z.string().email()).optional(),
+  userIds: z.array(z.string().uuid()).optional(),
+  maintenanceType: z.enum(["scheduled", "emergency", "completed"]),
+  options: z.object({
+    startTime: z.string(),
+    endTime: z.string().optional(),
+    duration: z.string().optional(),
+    reason: z.string().optional(),
+    affectedServices: z.array(z.string()).optional(),
+    statusPageUrl: z.string().url().optional()
+  })
+}).refine((data) => data.recipients || data.userIds, {
+  message: "\u5FC5\u987B\u63D0\u4F9B recipients \u6216 userIds \u4E4B\u4E00"
+});
+var activitySchema = z.object({
+  recipients: z.array(z.string().email()).optional(),
+  userIds: z.array(z.string().uuid()).optional(),
+  periodType: z.enum(["weekly", "monthly", "yearly"]),
+  activityData: z.object({
+    practiceCount: z.number().int().min(0),
+    studyHours: z.number().min(0),
+    questionsAnswered: z.number().int().min(0),
+    correctRate: z.number().min(0).max(100),
+    streakDays: z.number().int().min(0),
+    newWords: z.number().int().min(0),
+    achievementsUnlocked: z.number().int().min(0)
+  }),
+  options: z.object({
+    periodStart: z.string(),
+    periodEnd: z.string(),
+    topAchievements: z.array(z.string()).optional(),
+    recommendations: z.array(z.string()).optional(),
+    dashboardUrl: z.string().url().optional()
+  })
+}).refine((data) => data.recipients || data.userIds, {
+  message: "\u5FC5\u987B\u63D0\u4F9B recipients \u6216 userIds \u4E4B\u4E00"
+});
+var announcementSchema = z.object({
+  recipients: z.array(z.string().email()).optional(),
+  userIds: z.array(z.string().uuid()).optional(),
+  announcementType: z.enum(["new_feature", "major_update", "beta_release"]),
+  options: z.object({
+    title: z.string().min(1),
+    releaseDate: z.string(),
+    features: z.array(z.object({
+      name: z.string(),
+      description: z.string(),
+      icon: z.string().optional(),
+      benefits: z.array(z.string())
+    })),
+    ctaText: z.string().optional(),
+    ctaUrl: z.string().url().optional(),
+    videoUrl: z.string().url().optional(),
+    blogUrl: z.string().url().optional(),
+    feedbackUrl: z.string().url().optional()
+  })
+}).refine((data) => data.recipients || data.userIds, {
+  message: "\u5FC5\u987B\u63D0\u4F9B recipients \u6216 userIds \u4E4B\u4E00"
+});
+async function getRecipients(userIds, emails) {
+  const recipients = [];
+  if (userIds && userIds.length > 0) {
+    const users = await prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+        emailVerified: true,
+        // 只发送给已验证邮箱的用户
+        isActive: true
+        // 只发送给活跃用户
+      },
+      select: {
+        email: true,
+        name: true
+      }
+    });
+    recipients.push(...users.map((user) => ({
+      email: user.email,
+      userName: user.name || "\u7528\u6237"
+    })));
+  }
+  if (emails && emails.length > 0) {
+    recipients.push(...emails.map((email) => ({
+      email,
+      userName: "\u7528\u6237"
+      // 默认用户名
+    })));
+  }
+  return recipients;
+}
+router17.post(
+  "/security-alert",
+  authenticateToken,
+  requireAdmin4,
+  authRateLimit,
+  validateRequest({ body: securityAlertSchema }),
+  async (req, res) => {
+    try {
+      const { recipients: emails, userIds, alertType, options } = req.body;
+      const recipients = await getRecipients(userIds, emails);
+      if (recipients.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "\u6CA1\u6709\u627E\u5230\u6709\u6548\u7684\u63A5\u6536\u8005"
+        });
+      }
+      const result = await notificationEmailService.sendBatchNotification(
+        recipients,
+        "security_alert",
+        { alertType, options: options || {} }
+      );
+      res.json({
+        success: result.success,
+        message: `\u5B89\u5168\u8B66\u62A5\u90AE\u4EF6\u53D1\u9001\u5B8C\u6210`,
+        data: {
+          totalRecipients: recipients.length,
+          successCount: result.successCount,
+          failureCount: result.failureCount,
+          results: result.results
+        }
+      });
+    } catch (error) {
+      console.error("Security alert email error:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u53D1\u9001\u5B89\u5168\u8B66\u62A5\u90AE\u4EF6\u5931\u8D25"
+      });
+    }
+  }
+);
+router17.post(
+  "/maintenance",
+  authenticateToken,
+  requireAdmin4,
+  authRateLimit,
+  validateRequest({ body: maintenanceSchema }),
+  async (req, res) => {
+    try {
+      const { recipients: emails, userIds, maintenanceType, options } = req.body;
+      const recipients = await getRecipients(userIds, emails);
+      if (recipients.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "\u6CA1\u6709\u627E\u5230\u6709\u6548\u7684\u63A5\u6536\u8005"
+        });
+      }
+      const result = await notificationEmailService.sendBatchNotification(
+        recipients,
+        "maintenance",
+        { maintenanceType, options }
+      );
+      res.json({
+        success: result.success,
+        message: `\u7CFB\u7EDF\u7EF4\u62A4\u901A\u77E5\u90AE\u4EF6\u53D1\u9001\u5B8C\u6210`,
+        data: {
+          totalRecipients: recipients.length,
+          successCount: result.successCount,
+          failureCount: result.failureCount,
+          results: result.results
+        }
+      });
+    } catch (error) {
+      console.error("Maintenance notification email error:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u53D1\u9001\u7EF4\u62A4\u901A\u77E5\u90AE\u4EF6\u5931\u8D25"
+      });
+    }
+  }
+);
+router17.post(
+  "/activity-report",
+  authenticateToken,
+  requireAdmin4,
+  authRateLimit,
+  validateRequest({ body: activitySchema }),
+  async (req, res) => {
+    try {
+      const { recipients: emails, userIds, periodType, activityData, options } = req.body;
+      const recipients = await getRecipients(userIds, emails);
+      if (recipients.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "\u6CA1\u6709\u627E\u5230\u6709\u6548\u7684\u63A5\u6536\u8005"
+        });
+      }
+      const result = await notificationEmailService.sendBatchNotification(
+        recipients,
+        "activity",
+        { periodType, activityData, options }
+      );
+      res.json({
+        success: result.success,
+        message: `\u6D3B\u52A8\u62A5\u544A\u90AE\u4EF6\u53D1\u9001\u5B8C\u6210`,
+        data: {
+          totalRecipients: recipients.length,
+          successCount: result.successCount,
+          failureCount: result.failureCount,
+          results: result.results
+        }
+      });
+    } catch (error) {
+      console.error("Activity report email error:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u53D1\u9001\u6D3B\u52A8\u62A5\u544A\u90AE\u4EF6\u5931\u8D25"
+      });
+    }
+  }
+);
+router17.post(
+  "/feature-announcement",
+  authenticateToken,
+  requireAdmin4,
+  authRateLimit,
+  validateRequest({ body: announcementSchema }),
+  async (req, res) => {
+    try {
+      const { recipients: emails, userIds, announcementType, options } = req.body;
+      const recipients = await getRecipients(userIds, emails);
+      if (recipients.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "\u6CA1\u6709\u627E\u5230\u6709\u6548\u7684\u63A5\u6536\u8005"
+        });
+      }
+      const result = await notificationEmailService.sendBatchNotification(
+        recipients,
+        "announcement",
+        { announcementType, options }
+      );
+      res.json({
+        success: result.success,
+        message: `\u529F\u80FD\u516C\u544A\u90AE\u4EF6\u53D1\u9001\u5B8C\u6210`,
+        data: {
+          totalRecipients: recipients.length,
+          successCount: result.successCount,
+          failureCount: result.failureCount,
+          results: result.results
+        }
+      });
+    } catch (error) {
+      console.error("Feature announcement email error:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u53D1\u9001\u529F\u80FD\u516C\u544A\u90AE\u4EF6\u5931\u8D25"
+      });
+    }
+  }
+);
+router17.post(
+  "/broadcast/:type",
+  authenticateToken,
+  requireAdmin4,
+  authRateLimit,
+  async (req, res) => {
+    try {
+      const { type } = req.params;
+      const emailData = req.body;
+      if (!["security-alert", "maintenance", "activity-report", "feature-announcement"].includes(type)) {
+        return res.status(400).json({
+          success: false,
+          error: "\u4E0D\u652F\u6301\u7684\u90AE\u4EF6\u7C7B\u578B"
+        });
+      }
+      const activeUsers = await prisma.user.findMany({
+        where: {
+          emailVerified: true,
+          isActive: true
+          // 可以添加更多筛选条件，比如最近登录时间等
+        },
+        select: {
+          email: true,
+          name: true
+        },
+        take: 1e3
+        // 限制最大发送数量，避免一次性发送过多邮件
+      });
+      const recipients = activeUsers.map((user) => ({
+        email: user.email,
+        userName: user.name || "\u7528\u6237"
+      }));
+      if (recipients.length === 0) {
+        return res.json({
+          success: true,
+          message: "\u6CA1\u6709\u627E\u5230\u6D3B\u8DC3\u7528\u6237",
+          data: { totalRecipients: 0, successCount: 0, failureCount: 0 }
+        });
+      }
+      const emailType = type.replace("-", "_");
+      const result = await notificationEmailService.sendBatchNotification(
+        recipients,
+        emailType,
+        emailData
+      );
+      res.json({
+        success: result.success,
+        message: `\u5E7F\u64AD\u90AE\u4EF6\u53D1\u9001\u5B8C\u6210 (${type})`,
+        data: {
+          totalRecipients: recipients.length,
+          successCount: result.successCount,
+          failureCount: result.failureCount
+        }
+      });
+    } catch (error) {
+      console.error("Broadcast email error:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u5E7F\u64AD\u90AE\u4EF6\u53D1\u9001\u5931\u8D25"
+      });
+    }
+  }
+);
+router17.get("/stats", authenticateToken, requireAdmin4, async (req, res) => {
+  try {
+    const stats = notificationEmailService.getNotificationStats();
+    const userStats = await prisma.user.groupBy({
+      by: ["emailVerified"],
+      _count: {
+        id: true
+      }
+    });
+    res.json({
+      success: true,
+      data: {
+        notificationStats: stats,
+        userStats: userStats.reduce((acc, stat) => {
+          acc[stat.emailVerified ? "verified" : "unverified"] = stat._count.id;
+          return acc;
+        }, {})
+      }
+    });
+  } catch (error) {
+    console.error("Notification stats error:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u83B7\u53D6\u7EDF\u8BA1\u4FE1\u606F\u5931\u8D25"
+    });
+  }
+});
+var notifications_default = router17;
 
 // src/middleware/logging.ts
 import responseTime from "response-time";
@@ -11266,11 +13098,13 @@ app.use("/api/db-migrate", db_migrate_default);
 app.use("/api/emergency-fix", emergency_fix_default);
 app.use("/api/admin", admin_default);
 app.use("/api/database-fix", database_fix_default);
+app.use("/api/notifications", notifications_default);
 app.use("/api/auth", trackAuthActivity, auth_default);
 app.use("/api/practice", trackPracticeActivity, practice_default);
 app.use("/api/questions", trackPracticeActivity, practice_default);
 app.use("/api/chat", trackAIInteraction, chat_default);
 app.use("/api/vocabulary", trackVocabularyActivity, vocabulary_default);
+app.use("/api/vocabulary-minimal", vocabulary_minimal_default);
 app.get("/api/billing-test", (req, res) => {
   res.json({
     success: true,
@@ -11279,8 +13113,34 @@ app.get("/api/billing-test", (req, res) => {
     deployVersion: "v2.1-billing-fixed"
   });
 });
+console.log("\u{1F6A8} [\u7D27\u6025\u8C03\u8BD5] \u6CE8\u518C\u5185\u8054vocabulary\u6D4B\u8BD5\u8DEF\u7531");
+app.get("/api/vocab-emergency-test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Emergency vocabulary route working - inline in server.ts",
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    route: "/api/vocab-emergency-test"
+  });
+});
+app.post("/api/vocab-emergency-test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Emergency vocabulary POST working - inline in server.ts",
+    requestBody: req.body,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    route: "/api/vocab-emergency-test"
+  });
+});
 app.get("/test-simple", (req, res) => {
   res.json({ message: "Simple test works" });
+});
+app.get("/api/deploy-check", (req, res) => {
+  res.json({
+    deployedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    commitHash: "bb9aec58",
+    definitionEndpointExists: true,
+    message: "Latest code deployed successfully"
+  });
 });
 app.get("/api/debug/check-columns", async (req, res) => {
   try {
@@ -11474,9 +13334,10 @@ app.use("/api/billing", billing_default);
 app.get("/", (req, res) => {
   res.json({
     name: "ChatTOEIC API",
-    version: "2.0.0",
+    version: "2.0.1-definition-fix",
     status: "running",
-    timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    deployNote: "Includes /vocabulary/definition endpoint fix"
   });
 });
 app.use("*", (req, res) => {
