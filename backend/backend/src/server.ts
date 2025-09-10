@@ -11,6 +11,7 @@ import authRoutes from './routes/auth.js';
 import practiceRoutes from './routes/practice.js';
 import chatRoutes from './routes/chat.js';
 import vocabularyRoutes from './routes/vocabulary.js';
+import vocabularyMinimalRoutes from './routes/vocabulary-minimal.js';
 import billingRoutes from './routes/billing.js';
 // import billingMinimalRoutes from './routes/billing-minimal.js';
 import monitoringRoutes from './routes/monitoring.js';
@@ -171,6 +172,7 @@ app.use('/api/practice', trackPracticeActivity, practiceRoutes);
 app.use('/api/questions', trackPracticeActivity, practiceRoutes); // 兼容前端的题目生成端点
 app.use('/api/chat', trackAIInteraction, chatRoutes);
 app.use('/api/vocabulary', trackVocabularyActivity, vocabularyRoutes);
+app.use('/api/vocabulary-minimal', vocabularyMinimalRoutes);
 // 独立的简单测试路由 - 部署验证端点
 app.get('/api/billing-test', (req, res) => {
   res.json({ 
