@@ -427,9 +427,10 @@ app.use('/api/billing', billingRoutes); // Stripe支付系统路由
 app.get('/', (req, res) => {
   res.json({
     name: 'ChatTOEIC API',
-    version: '2.0.0',
+    version: '2.0.1-definition-fix',
     status: 'running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    deployNote: 'Includes /vocabulary/definition endpoint fix'
   });
 });
 
