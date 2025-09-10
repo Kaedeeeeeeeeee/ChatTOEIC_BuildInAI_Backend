@@ -240,6 +240,56 @@ router.post('/definition-test', (req: Request, res: Response) => {
   });
 });
 
+// 超简化的definition端点 - 不依赖geminiService，仅用于测试
+console.log('🔧 [路由注册] 注册 POST /vocabulary/definition-simple 端点 - 超简化版本');
+router.post('/definition-simple',
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      console.log(`🚀 [简化API] 收到词汇定义请求`);
+      const { word, language = 'zh' } = req.body;
+      
+      if (!word) {
+        return res.status(400).json({
+          success: false,
+          error: '请提供单词'
+        });
+      }
+
+      // 返回模拟数据，不调用AI服务
+      const mockResponse = {
+        success: true,
+        data: {
+          word,
+          definition: `${word} 的模拟定义 - 仅用于测试路由连通性`,
+          phonetic: `/${word}/`,
+          partOfSpeech: 'noun',
+          meanings: [
+            {
+              partOfSpeech: 'noun',
+              definitions: [
+                {
+                  definition: `${word} 的模拟释义`,
+                  example: `Example sentence with ${word}.`
+                }
+              ]
+            }
+          ]
+        }
+      };
+      
+      console.log(`📤 [简化API] 返回模拟结果`);
+      res.json(mockResponse);
+    } catch (error) {
+      console.error(`💥 [简化API] 错误:`, error);
+      res.status(500).json({
+        success: false,
+        error: '简化版本API错误'
+      });
+    }
+  }
+);
+
 // 获取词汇定义（用于翻译功能） - MOVED BEFORE PARAMETER ROUTES
 console.log('🔧 [路由注册] 注册 POST /vocabulary/definition 端点 - v2.0.1 - 修复路由顺序');
 router.post('/definition',
