@@ -104,17 +104,16 @@ const allowedOrigins = [
   'http://localhost:5173',               // 本地开发
   'http://localhost:3000',               // 备用本地端口
 ];
-
-app.use(cors({
+const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
     // 允许没有origin的请求（如移动应用）
     if (!origin) return callback(null, true);
-    
+
     // 检查origin是否在允许列表中，或者是Vercel预览部署
     if (allowedOrigins.includes(origin) || origin.includes('.vercel.app')) {
       return callback(null, true);
     }
-    
+
     console.warn('CORS blocked origin:', origin);
     return callback(new Error('Not allowed by CORS'), false);
   },
@@ -124,7 +123,11 @@ app.use(cors({
   exposedHeaders: ['Set-Cookie'],
   optionsSuccessStatus: 200, // 支持老旧浏览器
   preflightContinue: false,
-}));
+};
+
+// 统一应用CORS，并显式处理所有预检请求
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // 监控和日志中间件
 app.use(requestTimer);
