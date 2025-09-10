@@ -98,6 +98,7 @@ app.use(helmet({
 // CORS配置 - 支持Vercel前端部署
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
+  'https://chattoeic.com',              // 自定义域名（裸域）
   'https://www.chattoeic.com',           // 自定义域名
   'https://chattoeic.vercel.app',        // Vercel默认域名
   'https://chattoeic-dashboard.vercel.app', // 管理员Dashboard
