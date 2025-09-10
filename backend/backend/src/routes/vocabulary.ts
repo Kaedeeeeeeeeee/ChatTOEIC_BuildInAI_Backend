@@ -549,8 +549,8 @@ router.get('/stats',
   }
 );
 
-// 获取词汇定义（用于翻译功能）
-console.log('🔧 [路由注册] 注册 POST /vocabulary/definition 端点');
+// 获取词汇定义（用于翻译功能） - v2.0.1 部署修复
+console.log('🔧 [路由注册] 注册 POST /vocabulary/definition 端点 - v2.0.1');
 router.post('/definition',
   authenticateToken,
   async (req: Request, res: Response) => {
