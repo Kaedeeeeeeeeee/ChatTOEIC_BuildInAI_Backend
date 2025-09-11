@@ -19,7 +19,6 @@
     "allowUnreachableCode": true,
     "allowUnusedLabels": true,
     "noEmitOnError": false,
-    "suppressImplicitAnyIndexErrors": true,
     "lib": ["ES2022", "DOM"]
   },
   "include": [
