@@ -217,6 +217,16 @@ app.get('/api/word-definition-test', (req, res) => {
   res.json({ success: true, message: 'Word definition endpoint available', timestamp: new Date().toISOString() });
 });
 
+// 超级简单的测试端点
+app.get('/api/ultra-simple-test', (req, res) => {
+  res.json({ message: 'Ultra simple test works', timestamp: Date.now() });
+});
+
+// 最简单的POST测试
+app.post('/api/simple-post-test', (req, res) => {
+  res.json({ message: 'Simple POST test works', body: req.body });
+});
+
 app.use('/api/vocabulary', trackVocabularyActivity, vocabularyRoutes);
 app.use('/api/vocabulary-minimal', vocabularyMinimalRoutes);
 // 独立的简单测试路由 - 部署验证端点
