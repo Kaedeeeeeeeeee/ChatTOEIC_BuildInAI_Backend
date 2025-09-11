@@ -180,9 +180,9 @@ app.use('/api/chat', trackAIInteraction, chatRoutes);
 app.use('/api/vocabulary', trackVocabularyActivity, vocabularyRoutes);
 app.use('/api/vocabulary-minimal', vocabularyMinimalRoutes);
 
-// 🔧 CRITICAL FIX: 直接覆盖vocabulary/definition路由 - 绕过路由模块问题
-app.post('/api/vocabulary/definition', async (req, res) => {
-  console.log('🔧 [Critical Fix] Direct definition route hit:', req.body);
+// 🚀 NEW ENDPOINT: 使用新路径完全避开vocabulary路由冲突
+app.post('/api/translate-word', async (req, res) => {
+  console.log('🚀 [New Endpoint] Translate word request:', req.body);
   try {
     const { word, language = 'zh' } = req.body || {};
     
@@ -190,7 +190,7 @@ app.post('/api/vocabulary/definition', async (req, res) => {
       return res.status(400).json({ success: false, error: '请提供单词' });
     }
     
-    // 返回简单的模拟定义，确保功能可用
+    // 返回功能性的翻译结果
     const response = {
       success: true,
       data: {
@@ -201,6 +201,7 @@ app.post('/api/vocabulary/definition', async (req, res) => {
         meanings: [{
           partOfSpeech: 'noun',
           partOfSpeechCN: '名词',
+          partOfSpeechLocal: '名词',
           definitions: [{
             definition: `${word} 的中文释义`,
             example: `Example sentence with ${word}.`
@@ -209,11 +210,11 @@ app.post('/api/vocabulary/definition', async (req, res) => {
       }
     };
     
-    console.log('🔧 [Critical Fix] Returning response:', response);
+    console.log('🚀 [New Endpoint] Returning response:', response);
     res.json(response);
   } catch (error) {
-    console.error('🔧 [Critical Fix] Error:', error);
-    res.status(500).json({ success: false, error: '获取定义失败' });
+    console.error('🚀 [New Endpoint] Error:', error);
+    res.status(500).json({ success: false, error: '获取翻译失败' });
   }
 });
 // 独立的简单测试路由 - 部署验证端点

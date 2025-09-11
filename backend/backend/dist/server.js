@@ -13109,8 +13109,8 @@ app.use("/api/questions", trackPracticeActivity, practice_default);
 app.use("/api/chat", trackAIInteraction, chat_default);
 app.use("/api/vocabulary", trackVocabularyActivity, vocabulary_default);
 app.use("/api/vocabulary-minimal", vocabulary_minimal_default);
-app.post("/api/vocabulary/definition", async (req, res) => {
-  console.log("\u{1F527} [Critical Fix] Direct definition route hit:", req.body);
+app.post("/api/translate-word", async (req, res) => {
+  console.log("\u{1F680} [New Endpoint] Translate word request:", req.body);
   try {
     const { word, language = "zh" } = req.body || {};
     if (!word) {
@@ -13126,6 +13126,7 @@ app.post("/api/vocabulary/definition", async (req, res) => {
         meanings: [{
           partOfSpeech: "noun",
           partOfSpeechCN: "\u540D\u8BCD",
+          partOfSpeechLocal: "\u540D\u8BCD",
           definitions: [{
             definition: `${word} \u7684\u4E2D\u6587\u91CA\u4E49`,
             example: `Example sentence with ${word}.`
@@ -13133,11 +13134,11 @@ app.post("/api/vocabulary/definition", async (req, res) => {
         }]
       }
     };
-    console.log("\u{1F527} [Critical Fix] Returning response:", response);
+    console.log("\u{1F680} [New Endpoint] Returning response:", response);
     res.json(response);
   } catch (error) {
-    console.error("\u{1F527} [Critical Fix] Error:", error);
-    res.status(500).json({ success: false, error: "\u83B7\u53D6\u5B9A\u4E49\u5931\u8D25" });
+    console.error("\u{1F680} [New Endpoint] Error:", error);
+    res.status(500).json({ success: false, error: "\u83B7\u53D6\u7FFB\u8BD1\u5931\u8D25" });
   }
 });
 app.get("/api/billing-test", (req, res) => {
