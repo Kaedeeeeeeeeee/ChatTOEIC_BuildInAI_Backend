@@ -13047,6 +13047,8 @@ app.use(helmet({
 }));
 var allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:5173",
+  "https://chattoeic.com",
+  // 自定义域名（裸域）
   "https://www.chattoeic.com",
   // 自定义域名
   "https://chattoeic.vercel.app",
@@ -13058,7 +13060,7 @@ var allowedOrigins = [
   "http://localhost:3000"
   // 备用本地端口
 ];
-app.use(cors({
+var corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin) || origin.includes(".vercel.app")) {
@@ -13074,7 +13076,9 @@ app.use(cors({
   optionsSuccessStatus: 200,
   // 支持老旧浏览器
   preflightContinue: false
-}));
+};
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(requestTimer);
 app.use(responseTimeMiddleware);
 app.use(httpLogger);
@@ -13134,12 +13138,104 @@ app.post("/api/vocab-emergency-test", (req, res) => {
 app.get("/test-simple", (req, res) => {
   res.json({ message: "Simple test works" });
 });
+app.post("/api/vocabulary/definition", authenticateToken, async (req, res) => {
+  try {
+    const { word, language = "zh" } = req.body || {};
+    const userId = req.user?.userId;
+    console.log("\u{1F6E1}\uFE0F [Fallback] Definition request received", { word, language, userId });
+    if (!word || typeof word !== "string") {
+      return res.status(400).json({ success: false, error: "\u8BF7\u63D0\u4F9B\u6709\u6548\u7684\u5355\u8BCD" });
+    }
+    try {
+      const existingUserWord = await prisma.vocabularyItem.findFirst({
+        where: { userId: userId || void 0, word: word.toLowerCase(), meanings: { not: null } },
+        orderBy: { addedAt: "desc" }
+      });
+      if (existingUserWord?.meanings) {
+        console.log("\u{1F6E1}\uFE0F [Fallback] Reusing user meanings");
+        return res.json({
+          success: true,
+          data: {
+            word,
+            phonetic: existingUserWord.phonetic,
+            meanings: existingUserWord.meanings,
+            definitionLoading: false,
+            definitionError: false
+          }
+        });
+      }
+      const existingAnyWord = await prisma.vocabularyItem.findFirst({
+        where: { word: word.toLowerCase(), meanings: { not: null } },
+        orderBy: { addedAt: "desc" }
+      });
+      if (existingAnyWord?.meanings) {
+        console.log("\u{1F6E1}\uFE0F [Fallback] Reusing global meanings");
+        return res.json({
+          success: true,
+          data: {
+            word,
+            phonetic: existingAnyWord.phonetic,
+            meanings: existingAnyWord.meanings,
+            definitionLoading: false,
+            definitionError: false
+          }
+        });
+      }
+    } catch (dbErr) {
+      console.warn("\u26A0\uFE0F [Fallback] DB lookup failed, will try AI", dbErr);
+    }
+    try {
+      console.log("\u{1F916} [Fallback] Calling geminiService.getWordDefinition");
+      const ai = await geminiService.getWordDefinition(word, "", language);
+      return res.json({
+        success: true,
+        data: {
+          word,
+          phonetic: ai?.phonetic,
+          meanings: ai?.meanings || [
+            {
+              partOfSpeech: "noun",
+              definitions: [
+                { definition: `${word} \u7684\u5B9A\u4E49\uFF08AI\u751F\u6210\uFF09`, example: `Example sentence with ${word}.` }
+              ]
+            }
+          ],
+          definitionLoading: false,
+          definitionError: !ai
+        }
+      });
+    } catch (aiErr) {
+      console.error("\u274C [Fallback] AI failed, returning mock", aiErr);
+      return res.json({
+        success: true,
+        data: {
+          word,
+          phonetic: `/${word}/`,
+          meanings: [
+            {
+              partOfSpeech: "noun",
+              definitions: [
+                { definition: `${word} \u7684\u6A21\u62DF\u5B9A\u4E49\uFF08\u8DEF\u7531\u515C\u5E95\uFF09`, example: `Example sentence with ${word}.` }
+              ]
+            }
+          ],
+          definitionLoading: false,
+          definitionError: true
+        },
+        meta: { fallback: true }
+      });
+    }
+  } catch (error) {
+    console.error("\u{1F4A5} [Fallback] Fatal definition error", error);
+    return res.status(500).json({ success: false, error: "\u83B7\u53D6\u8BCD\u6C47\u5B9A\u4E49\u5931\u8D25" });
+  }
+});
 app.get("/api/deploy-check", (req, res) => {
   res.json({
     deployedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    commitHash: "bb9aec58",
+    commitHash: "fix-vocab-definition-fallback",
     definitionEndpointExists: true,
-    message: "Latest code deployed successfully"
+    message: "Force deploy: fix vocabulary/definition 404 error - v2.0.3 - urgent fix"
   });
 });
 app.get("/api/debug/check-columns", async (req, res) => {
