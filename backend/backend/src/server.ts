@@ -172,22 +172,13 @@ app.use('/api/admin', adminRoutes); // 启用管理员功能
 app.use('/api/database-fix', databaseFixRoutes); // 数据库修复端点
 app.use('/api/notifications', notificationRoutes); // 通知邮件路由
 
-// 带有分析追踪的业务路由
-app.use('/api/auth', trackAuthActivity, authRoutes);
-app.use('/api/practice', trackPracticeActivity, practiceRoutes);
-app.use('/api/questions', trackPracticeActivity, practiceRoutes); // 兼容前端的题目生成端点
-app.use('/api/chat', trackAIInteraction, chatRoutes);
-app.use('/api/vocabulary', trackVocabularyActivity, vocabularyRoutes);
-app.use('/api/vocabulary-minimal', vocabularyMinimalRoutes);
-
-// 🧪 SIMPLE TEST: 最简单的测试端点
+// 🚀 CRITICAL: 在所有其他路由之前注册关键端点，避免运行时错误影响
 app.get('/api/simple-test', (req, res) => {
-  res.json({ message: 'Simple test endpoint works!', timestamp: new Date().toISOString() });
+  res.json({ message: 'Simple test works!', timestamp: new Date().toISOString() });
 });
 
-// 🚀 NEW ENDPOINT: 使用新路径完全避开vocabulary路由冲突
 app.post('/api/translate-word', async (req, res) => {
-  console.log('🚀 [New Endpoint] Translate word request:', req.body);
+  console.log('🚀 [Critical] Translate word request:', req.body);
   try {
     const { word, language = 'zh' } = req.body || {};
     
@@ -215,13 +206,21 @@ app.post('/api/translate-word', async (req, res) => {
       }
     };
     
-    console.log('🚀 [New Endpoint] Returning response:', response);
+    console.log('🚀 [Critical] Returning response:', response);
     res.json(response);
   } catch (error) {
-    console.error('🚀 [New Endpoint] Error:', error);
+    console.error('🚀 [Critical] Error:', error);
     res.status(500).json({ success: false, error: '获取翻译失败' });
   }
 });
+
+// 带有分析追踪的业务路由
+app.use('/api/auth', trackAuthActivity, authRoutes);
+app.use('/api/practice', trackPracticeActivity, practiceRoutes);
+app.use('/api/questions', trackPracticeActivity, practiceRoutes); // 兼容前端的题目生成端点
+app.use('/api/chat', trackAIInteraction, chatRoutes);
+app.use('/api/vocabulary', trackVocabularyActivity, vocabularyRoutes);
+app.use('/api/vocabulary-minimal', vocabularyMinimalRoutes);
 // 独立的简单测试路由 - 部署验证端点
 app.get('/api/billing-test', (req, res) => {
   res.json({ 

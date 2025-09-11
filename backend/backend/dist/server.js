@@ -13103,17 +13103,11 @@ app.use("/api/emergency-fix", emergency_fix_default);
 app.use("/api/admin", admin_default);
 app.use("/api/database-fix", database_fix_default);
 app.use("/api/notifications", notifications_default);
-app.use("/api/auth", trackAuthActivity, auth_default);
-app.use("/api/practice", trackPracticeActivity, practice_default);
-app.use("/api/questions", trackPracticeActivity, practice_default);
-app.use("/api/chat", trackAIInteraction, chat_default);
-app.use("/api/vocabulary", trackVocabularyActivity, vocabulary_default);
-app.use("/api/vocabulary-minimal", vocabulary_minimal_default);
 app.get("/api/simple-test", (req, res) => {
-  res.json({ message: "Simple test endpoint works!", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+  res.json({ message: "Simple test works!", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
 });
 app.post("/api/translate-word", async (req, res) => {
-  console.log("\u{1F680} [New Endpoint] Translate word request:", req.body);
+  console.log("\u{1F680} [Critical] Translate word request:", req.body);
   try {
     const { word, language = "zh" } = req.body || {};
     if (!word) {
@@ -13137,13 +13131,19 @@ app.post("/api/translate-word", async (req, res) => {
         }]
       }
     };
-    console.log("\u{1F680} [New Endpoint] Returning response:", response);
+    console.log("\u{1F680} [Critical] Returning response:", response);
     res.json(response);
   } catch (error) {
-    console.error("\u{1F680} [New Endpoint] Error:", error);
+    console.error("\u{1F680} [Critical] Error:", error);
     res.status(500).json({ success: false, error: "\u83B7\u53D6\u7FFB\u8BD1\u5931\u8D25" });
   }
 });
+app.use("/api/auth", trackAuthActivity, auth_default);
+app.use("/api/practice", trackPracticeActivity, practice_default);
+app.use("/api/questions", trackPracticeActivity, practice_default);
+app.use("/api/chat", trackAIInteraction, chat_default);
+app.use("/api/vocabulary", trackVocabularyActivity, vocabulary_default);
+app.use("/api/vocabulary-minimal", vocabulary_minimal_default);
 app.get("/api/billing-test", (req, res) => {
   res.json({
     success: true,
