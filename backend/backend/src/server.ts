@@ -324,7 +324,7 @@ app.get('/api/deploy-check', (req, res) => {
     deployedAt: new Date().toISOString(),
     commitHash: 'fix-vocab-definition-fallback',
     definitionEndpointExists: true,
-    message: 'Force deploy: fix vocabulary/definition 404 error - v2.0.2'
+    message: 'Force deploy: fix vocabulary/definition 404 error - v2.0.3 - urgent fix'
   });
 });
 
