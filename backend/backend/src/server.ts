@@ -180,6 +180,11 @@ app.use('/api/chat', trackAIInteraction, chatRoutes);
 app.use('/api/vocabulary', trackVocabularyActivity, vocabularyRoutes);
 app.use('/api/vocabulary-minimal', vocabularyMinimalRoutes);
 
+// 🧪 SIMPLE TEST: 最简单的测试端点
+app.get('/api/simple-test', (req, res) => {
+  res.json({ message: 'Simple test endpoint works!', timestamp: new Date().toISOString() });
+});
+
 // 🚀 NEW ENDPOINT: 使用新路径完全避开vocabulary路由冲突
 app.post('/api/translate-word', async (req, res) => {
   console.log('🚀 [New Endpoint] Translate word request:', req.body);

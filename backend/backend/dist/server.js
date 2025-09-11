@@ -13109,6 +13109,9 @@ app.use("/api/questions", trackPracticeActivity, practice_default);
 app.use("/api/chat", trackAIInteraction, chat_default);
 app.use("/api/vocabulary", trackVocabularyActivity, vocabulary_default);
 app.use("/api/vocabulary-minimal", vocabulary_minimal_default);
+app.get("/api/simple-test", (req, res) => {
+  res.json({ message: "Simple test endpoint works!", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+});
 app.post("/api/translate-word", async (req, res) => {
   console.log("\u{1F680} [New Endpoint] Translate word request:", req.body);
   try {
