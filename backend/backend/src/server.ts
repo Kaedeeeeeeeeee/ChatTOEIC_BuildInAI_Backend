@@ -178,6 +178,12 @@ app.use('/api/practice', trackPracticeActivity, practiceRoutes);
 app.use('/api/questions', trackPracticeActivity, practiceRoutes); // 兼容前端的题目生成端点
 app.use('/api/chat', trackAIInteraction, chatRoutes);
 
+// 🚨 SUPER CRITICAL: 测试词汇路由优先级
+app.get('/api/vocabulary/test-priority', (req, res) => {
+  console.log('🚨 [PRIORITY TEST] Vocabulary priority test endpoint hit');
+  res.json({ success: true, message: 'Priority test works', timestamp: new Date().toISOString() });
+});
+
 // 🔧 CRITICAL: 词汇定义端点 - 必须在vocabulary路由之前注册！
 app.post('/api/vocabulary/definition', async (req, res) => {
   try {
