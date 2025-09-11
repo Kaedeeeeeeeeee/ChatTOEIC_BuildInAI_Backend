@@ -48,6 +48,7 @@ import { log, logSystemHealth } from './utils/logger.js';
 import { ensureSubscriptionPlansExist } from './utils/seedData.js';
 // import { MonitoringService } from './services/monitoringService.js'; // 暂时禁用以排查问题
 import { prisma } from './utils/database.js';
+import { geminiService } from './services/geminiService.js';
 
 // 加载环境变量
 dotenv.config();
@@ -196,7 +197,6 @@ app.post('/api/word-definition', async (req, res) => {
     }
 
     // 使用已导入的geminiService
-    const { geminiService } = require('./services/geminiService.js');
     const definition = await geminiService.getWordDefinition(word, language);
     
     console.log('🚨 [CRITICAL WORD-DEF] AI definition retrieved successfully');
