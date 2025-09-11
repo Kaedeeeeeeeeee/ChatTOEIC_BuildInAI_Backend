@@ -184,6 +184,52 @@ app.get('/test-simple', (req, res) => {
   res.json({ message: 'Simple test works' });
 });
 
+// 🚨 CRITICAL: 词汇定义端点 - 绕过vocabulary路由冲突
+app.post('/api/word-definition', async (req, res) => {
+  try {
+    const { word, language = 'zh' } = req.body || {};
+    console.log('🚨 [CRITICAL WORD-DEF] Request received', { word, language });
+    
+    if (!word || typeof word !== 'string') {
+      console.log('🚨 [CRITICAL WORD-DEF] Invalid word parameter');
+      return res.status(400).json({ success: false, error: '请提供有效的单词' });
+    }
+
+    // 使用已导入的geminiService
+    const { geminiService } = require('./services/geminiService.js');
+    const definition = await geminiService.getWordDefinition(word, language);
+    
+    console.log('🚨 [CRITICAL WORD-DEF] AI definition retrieved successfully');
+    return res.json({
+      success: true,
+      data: {
+        word,
+        phonetic: definition.phonetic || '',
+        meanings: definition.meanings || [],
+        definitionLoading: false,
+        definitionError: false
+      }
+    });
+  } catch (error) {
+    console.error('🚨 [CRITICAL WORD-DEF] Error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: '获取词汇定义失败',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// 测试端点
+app.get('/api/word-definition-test', (req, res) => {
+  console.log('🚨 [CRITICAL WORD-DEF] Test endpoint hit');
+  res.json({ 
+    success: true, 
+    message: 'Word definition endpoint available and working', 
+    timestamp: new Date().toISOString() 
+  });
+});
+
 // 🔍 数据库列检查端点（公开访问，用于调试）
 app.get('/api/debug/check-columns', async (req, res) => {
   try {
