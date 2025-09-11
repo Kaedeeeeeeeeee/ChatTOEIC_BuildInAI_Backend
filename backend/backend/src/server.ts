@@ -177,6 +177,42 @@ app.use('/api/auth', trackAuthActivity, authRoutes);
 app.use('/api/practice', trackPracticeActivity, practiceRoutes);
 app.use('/api/questions', trackPracticeActivity, practiceRoutes); // 兼容前端的题目生成端点
 app.use('/api/chat', trackAIInteraction, chatRoutes);
+
+// 🔧 CRITICAL: 词汇定义端点 - 必须在vocabulary路由之前注册！
+app.post('/api/vocabulary/definition', async (req, res) => {
+  try {
+    const { word, language = 'zh' } = req.body || {};
+    console.log('🚨 [CRITICAL FIX] Definition request received', { word, language });
+    
+    if (!word || typeof word !== 'string') {
+      return res.status(400).json({ success: false, error: '请提供有效的单词' });
+    }
+
+    // 直接调用AI获取定义
+    const geminiService = await import('./services/geminiService');
+    const definition = await geminiService.getWordDefinition(word, language);
+    
+    console.log('🚨 [CRITICAL FIX] AI definition retrieved');
+    return res.json({
+      success: true,
+      data: {
+        word,
+        phonetic: definition.phonetic || '',
+        meanings: definition.meanings || [],
+        definitionLoading: false,
+        definitionError: false
+      }
+    });
+  } catch (error) {
+    console.error('🚨 [CRITICAL FIX] Error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: '获取词汇定义失败',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 app.use('/api/vocabulary', trackVocabularyActivity, vocabularyRoutes);
 app.use('/api/vocabulary-minimal', vocabularyMinimalRoutes);
 // 独立的简单测试路由 - 部署验证端点
