@@ -189,7 +189,6 @@ app.post('/api/word-definition', async (req, res) => {
     }
 
     // 直接调用AI获取定义
-    const geminiService = await import('./services/geminiService');
     const definition = await geminiService.getWordDefinition(word, language);
     
     console.log('🚨 [EMERGENCY BYPASS] AI definition retrieved successfully');
