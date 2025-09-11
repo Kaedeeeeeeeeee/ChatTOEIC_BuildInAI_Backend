@@ -5892,7 +5892,6 @@ router6.post(
 console.log("\u{1F527} [\u8DEF\u7531\u6CE8\u518C] \u6CE8\u518C POST /vocabulary/definition \u7AEF\u70B9 - v2.0.1 - \u4FEE\u590D\u8DEF\u7531\u987A\u5E8F");
 router6.post(
   "/definition",
-  authenticateToken,
   async (req, res) => {
     try {
       console.log(`\u{1F680} [\u540E\u7AEFAPI] \u6536\u5230\u8BCD\u6C47\u5B9A\u4E49\u8BF7\u6C42`);
@@ -13103,41 +13102,6 @@ app.use("/api/emergency-fix", emergency_fix_default);
 app.use("/api/admin", admin_default);
 app.use("/api/database-fix", database_fix_default);
 app.use("/api/notifications", notifications_default);
-app.get("/api/simple-test", (req, res) => {
-  res.json({ message: "Simple test works!", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
-});
-app.post("/api/translate-word", async (req, res) => {
-  console.log("\u{1F680} [Critical] Translate word request:", req.body);
-  try {
-    const { word, language = "zh" } = req.body || {};
-    if (!word) {
-      return res.status(400).json({ success: false, error: "\u8BF7\u63D0\u4F9B\u5355\u8BCD" });
-    }
-    const response = {
-      success: true,
-      data: {
-        word,
-        definition: `${word} \u7684\u5B9A\u4E49`,
-        phonetic: `/${word}/`,
-        partOfSpeech: "noun",
-        meanings: [{
-          partOfSpeech: "noun",
-          partOfSpeechCN: "\u540D\u8BCD",
-          partOfSpeechLocal: "\u540D\u8BCD",
-          definitions: [{
-            definition: `${word} \u7684\u4E2D\u6587\u91CA\u4E49`,
-            example: `Example sentence with ${word}.`
-          }]
-        }]
-      }
-    };
-    console.log("\u{1F680} [Critical] Returning response:", response);
-    res.json(response);
-  } catch (error) {
-    console.error("\u{1F680} [Critical] Error:", error);
-    res.status(500).json({ success: false, error: "\u83B7\u53D6\u7FFB\u8BD1\u5931\u8D25" });
-  }
-});
 app.use("/api/auth", trackAuthActivity, auth_default);
 app.use("/api/practice", trackPracticeActivity, practice_default);
 app.use("/api/questions", trackPracticeActivity, practice_default);

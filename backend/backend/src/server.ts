@@ -172,48 +172,6 @@ app.use('/api/admin', adminRoutes); // 启用管理员功能
 app.use('/api/database-fix', databaseFixRoutes); // 数据库修复端点
 app.use('/api/notifications', notificationRoutes); // 通知邮件路由
 
-// 🚀 CRITICAL: 在所有其他路由之前注册关键端点，避免运行时错误影响
-app.get('/api/simple-test', (req, res) => {
-  res.json({ message: 'Simple test works!', timestamp: new Date().toISOString() });
-});
-
-app.post('/api/translate-word', async (req, res) => {
-  console.log('🚀 [Critical] Translate word request:', req.body);
-  try {
-    const { word, language = 'zh' } = req.body || {};
-    
-    if (!word) {
-      return res.status(400).json({ success: false, error: '请提供单词' });
-    }
-    
-    // 返回功能性的翻译结果
-    const response = {
-      success: true,
-      data: {
-        word,
-        definition: `${word} 的定义`,
-        phonetic: `/${word}/`,
-        partOfSpeech: 'noun',
-        meanings: [{
-          partOfSpeech: 'noun',
-          partOfSpeechCN: '名词',
-          partOfSpeechLocal: '名词',
-          definitions: [{
-            definition: `${word} 的中文释义`,
-            example: `Example sentence with ${word}.`
-          }]
-        }]
-      }
-    };
-    
-    console.log('🚀 [Critical] Returning response:', response);
-    res.json(response);
-  } catch (error) {
-    console.error('🚀 [Critical] Error:', error);
-    res.status(500).json({ success: false, error: '获取翻译失败' });
-  }
-});
-
 // 带有分析追踪的业务路由
 app.use('/api/auth', trackAuthActivity, authRoutes);
 app.use('/api/practice', trackPracticeActivity, practiceRoutes);

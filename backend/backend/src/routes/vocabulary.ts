@@ -293,7 +293,6 @@ router.post('/definition-simple',
 // 获取词汇定义（用于翻译功能） - MOVED BEFORE PARAMETER ROUTES
 console.log('🔧 [路由注册] 注册 POST /vocabulary/definition 端点 - v2.0.1 - 修复路由顺序');
 router.post('/definition',
-  authenticateToken,
   async (req: Request, res: Response) => {
     try {
       console.log(`🚀 [后端API] 收到词汇定义请求`);
