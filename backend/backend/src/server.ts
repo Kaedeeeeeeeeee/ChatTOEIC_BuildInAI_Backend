@@ -178,17 +178,11 @@ app.use('/api/practice', trackPracticeActivity, practiceRoutes);
 app.use('/api/questions', trackPracticeActivity, practiceRoutes); // 兼容前端的题目生成端点
 app.use('/api/chat', trackAIInteraction, chatRoutes);
 
-// 🚨 SUPER CRITICAL: 测试词汇路由优先级
-app.get('/api/vocabulary/test-priority', (req, res) => {
-  console.log('🚨 [PRIORITY TEST] Vocabulary priority test endpoint hit');
-  res.json({ success: true, message: 'Priority test works', timestamp: new Date().toISOString() });
-});
-
-// 🔧 CRITICAL: 词汇定义端点 - 必须在vocabulary路由之前注册！
-app.post('/api/vocabulary/definition', async (req, res) => {
+// 🚨 EMERGENCY BYPASS: 使用不同路径避开vocabulary路由冲突
+app.post('/api/word-definition', async (req, res) => {
   try {
     const { word, language = 'zh' } = req.body || {};
-    console.log('🚨 [CRITICAL FIX] Definition request received', { word, language });
+    console.log('🚨 [EMERGENCY BYPASS] Word definition request', { word, language });
     
     if (!word || typeof word !== 'string') {
       return res.status(400).json({ success: false, error: '请提供有效的单词' });
@@ -198,7 +192,7 @@ app.post('/api/vocabulary/definition', async (req, res) => {
     const geminiService = await import('./services/geminiService');
     const definition = await geminiService.getWordDefinition(word, language);
     
-    console.log('🚨 [CRITICAL FIX] AI definition retrieved');
+    console.log('🚨 [EMERGENCY BYPASS] AI definition retrieved successfully');
     return res.json({
       success: true,
       data: {
@@ -210,13 +204,18 @@ app.post('/api/vocabulary/definition', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('🚨 [CRITICAL FIX] Error:', error);
+    console.error('🚨 [EMERGENCY BYPASS] Error:', error);
     return res.status(500).json({ 
       success: false, 
       error: '获取词汇定义失败',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
+});
+
+// 测试端点
+app.get('/api/word-definition-test', (req, res) => {
+  res.json({ success: true, message: 'Word definition endpoint available', timestamp: new Date().toISOString() });
 });
 
 app.use('/api/vocabulary', trackVocabularyActivity, vocabularyRoutes);
