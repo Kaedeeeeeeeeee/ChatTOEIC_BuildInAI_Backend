@@ -1,6 +1,6 @@
 {
   "name": "chattoeic-api",
-  "version": "2.0.1-force-deploy",
+  "version": "2.0.1-emergency-deploy",
   "description": "ChatTOEIC Backend API Server with vocabulary definition endpoint",
   "main": "dist/server.js",
   "type": "module",
