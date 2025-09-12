@@ -188,8 +188,8 @@ app.post('/api/word-definition', async (req, res) => {
       return res.status(400).json({ success: false, error: '请提供有效的单词' });
     }
 
-    // 直接调用AI获取定义
-    const definition = await geminiService.getWordDefinition(word, language);
+    // 直接调用AI获取定义（新版本不需要语境参数）
+    const definition = await geminiService.getWordDefinition(word);
     
     console.log('🚨 [EMERGENCY BYPASS] AI definition retrieved successfully');
     return res.json({

@@ -273,16 +273,12 @@ model VocabularyItem {
   definition      String?
   phonetic        String?
   audioUrl        String?
-  context         String?
-  meanings        Json?
+  meanings        Json?    // AI返回的完整词汇信息，包含examples
   
   language        String    @default("en")
   reading         String?
   jlpt            String[]
   commonality     Boolean?
-  
-  sourceType      String?   // practice/review
-  sourceId        String?
   
   notes           String?
   mastered        Boolean   @default(false)

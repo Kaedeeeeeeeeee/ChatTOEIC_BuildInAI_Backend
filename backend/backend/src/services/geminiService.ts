@@ -143,13 +143,12 @@ class GeminiService {
     }
   }
 
-  async getWordDefinition(word: string, context?: string): Promise<any> {
+  async getWordDefinition(word: string): Promise<any> {
     try {
       const prompt = `
 作为英语词汇专家，请为以下单词提供详细的词汇信息，特别适合TOEIC学习者：
 
 单词：${word}
-${context ? `出现语境：${context}` : ''}
 
 请以JSON格式返回，包含以下信息：
 {
@@ -158,12 +157,16 @@ ${context ? `出现语境：${context}` : ''}
   "meanings": [
     {
       "partOfSpeech": "英文词性（如noun、verb、adjective等）",
-      "partOfSpeechCN": "中文词性（如名词、动词、形容词等）",
+      "partOfSpeechCN": "中文词性（如名词、动词、形容词等）", 
       "partOfSpeechLocal": "中文词性",
       "definitions": [
         {
-          "definition": "详细的中文释义",
-          "example": "英文例句（最好与TOEIC相关）"
+          "definition": "详细的中文释义1",
+          "example": "英文例句1（最好与TOEIC/商务相关）"
+        },
+        {
+          "definition": "详细的中文释义2（如果有多个含义）",
+          "example": "英文例句2（最好与TOEIC/商务相关）"
         }
       ]
     }
@@ -171,9 +174,11 @@ ${context ? `出现语境：${context}` : ''}
 }
 
 要求：
+- 每个词性提供1-2个主要释义，每个释义配一个相应的例句
 - 释义必须准确、通俗易懂
-- 例句要实用，最好与商务、职场相关
-- 如果单词有多个词性，请提供主要的2-3个
+- 例句要实用，最好与商务、职场、日常交流相关
+- 如果单词有多个词性，请提供主要的2-3个词性
+- 优先提供TOEIC考试中常见的词义和用法
 
 **重要：请直接返回JSON格式，不要使用Markdown代码块包装。**
       `;
