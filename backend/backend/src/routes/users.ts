@@ -507,4 +507,292 @@ router.get('/stats/overview',
   }
 );
 
+// =================================
+// 用户个人分析API端点
+// 供普通用户查看自己的学习数据分析
+// =================================
+
+// 获取用户时间分析数据
+router.get('/time-analytics',
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const { period = 'all', type = 'all', category } = req.query;
+
+      // 构建时间过滤条件
+      let dateFilter: any = {};
+      const now = new Date();
+
+      switch (period) {
+        case 'week':
+          dateFilter = {
+            createdAt: {
+              gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            }
+          };
+          break;
+        case 'month':
+          dateFilter = {
+            createdAt: {
+              gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            }
+          };
+          break;
+        case 'year':
+          dateFilter = {
+            createdAt: {
+              gte: new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+            }
+          };
+          break;
+        default:
+          // 'all' - 无时间限制
+          break;
+      }
+
+      // 构建题目类型过滤条件
+      let typeFilter: any = {};
+      if (type !== 'all') {
+        typeFilter = { questionType: type };
+      }
+
+      // 构建类别过滤条件
+      let categoryFilter: any = {};
+      if (category) {
+        categoryFilter = { questionCategory: category };
+      }
+
+      // 获取用户的练习会话
+      const sessions = await prisma.practiceSession.findMany({
+        where: {
+          userId,
+          ...dateFilter
+        },
+        include: {
+          questionTimeRecords: {
+            where: {
+              ...typeFilter,
+              ...categoryFilter
+            }
+          }
+        }
+      });
+
+      // 计算统计数据
+      const allTimeRecords = sessions.flatMap(s => s.questionTimeRecords);
+      const totalSessions = sessions.length;
+      const totalQuestions = allTimeRecords.length;
+
+      if (totalQuestions === 0) {
+        return res.json({
+          success: true,
+          data: {
+            period,
+            totalSessions: 0,
+            totalQuestions: 0,
+            timeStats: {
+              totalTime: 0,
+              averagePerQuestion: 0,
+              averagePerSession: 0,
+              overtimeQuestions: 0
+            },
+            partBreakdown: {},
+            trendData: []
+          },
+          message: '暂无时间数据'
+        });
+      }
+
+      const totalTime = allTimeRecords.reduce((sum, record) => sum + record.timeSpent, 0);
+      const averagePerQuestion = Math.round(totalTime / totalQuestions);
+      const averagePerSession = Math.round(totalTime / totalSessions);
+      const overtimeQuestions = allTimeRecords.filter(record => record.isOvertime).length;
+
+      // 按Part分类统计
+      const partBreakdown: any = {};
+      const partGroups = allTimeRecords.reduce((groups, record) => {
+        const part = record.questionCategory;
+        if (!groups[part]) {
+          groups[part] = [];
+        }
+        groups[part].push(record);
+        return groups;
+      }, {} as any);
+
+      Object.keys(partGroups).forEach(part => {
+        const records = partGroups[part];
+        const avgTime = Math.round(records.reduce((sum: number, r: any) => sum + r.timeSpent, 0) / records.length);
+        const avgLimit = Math.round(records.reduce((sum: number, r: any) => sum + (r.timeLimit || 0), 0) / records.length);
+        const efficiency = avgLimit > 0 ? Math.round((avgTime / avgLimit) * 100) : 100;
+        const overtimeCount = records.filter((r: any) => r.isOvertime).length;
+
+        partBreakdown[part] = {
+          questionCount: records.length,
+          averageTime: avgTime,
+          recommendedTime: avgLimit,
+          efficiency,
+          overtimeCount
+        };
+      });
+
+      // 趋势数据（按天统计最近30天）
+      const trendData: any[] = [];
+      for (let i = 29; i >= 0; i--) {
+        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+        const dayRecords = allTimeRecords.filter(record => {
+          const recordDate = new Date(record.createdAt);
+          return recordDate >= dayStart && recordDate < dayEnd;
+        });
+
+        if (dayRecords.length > 0) {
+          const dayAvgTime = Math.round(dayRecords.reduce((sum, r) => sum + r.timeSpent, 0) / dayRecords.length);
+          const dayAvgLimit = Math.round(dayRecords.reduce((sum, r) => sum + (r.timeLimit || 0), 0) / dayRecords.length);
+          const dayEfficiency = dayAvgLimit > 0 ? Math.round((dayAvgTime / dayAvgLimit) * 100) : 100;
+
+          trendData.push({
+            date: dayStart.toISOString().split('T')[0],
+            averageTime: dayAvgTime,
+            efficiency: dayEfficiency
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          period,
+          totalSessions,
+          totalQuestions,
+          timeStats: {
+            totalTime,
+            averagePerQuestion,
+            averagePerSession,
+            overtimeQuestions
+          },
+          partBreakdown,
+          trendData
+        },
+        message: '获取时间分析成功'
+      });
+
+    } catch (error) {
+      console.error('❌ Get time analytics error:', error);
+      res.status(500).json({
+        success: false,
+        error: '获取时间分析失败'
+      });
+    }
+  }
+);
+
+// 获取用户听力播放统计
+router.get('/listening-analytics',
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+
+      // 获取用户的听力练习会话
+      const sessions = await prisma.practiceSession.findMany({
+        where: { userId },
+        include: {
+          audioPlaybackRecords: true
+        }
+      });
+
+      const allAudioRecords = sessions.flatMap(s => s.audioPlaybackRecords);
+      const totalListeningSessions = sessions.filter(s => s.audioPlaybackRecords.length > 0).length;
+      const totalAudioQuestions = allAudioRecords.length;
+
+      if (totalAudioQuestions === 0) {
+        return res.json({
+          success: true,
+          data: {
+            totalListeningSessions: 0,
+            totalAudioQuestions: 0,
+            listeningStats: {
+              averagePlayCount: 0,
+              completionRate: 0,
+              totalListenTime: 0,
+              averageListenTime: 0
+            },
+            partBreakdown: {}
+          },
+          message: '暂无听力数据'
+        });
+      }
+
+      // 计算听力统计
+      const totalPlayCount = allAudioRecords.reduce((sum, record) => sum + record.playCount, 0);
+      const totalListenTime = allAudioRecords.reduce((sum, record) => sum + record.totalListenTime, 0);
+      const completedCount = allAudioRecords.filter(record => record.completedListening).length;
+
+      const listeningStats = {
+        averagePlayCount: Math.round((totalPlayCount / totalAudioQuestions) * 100) / 100,
+        completionRate: Math.round((completedCount / totalAudioQuestions) * 100),
+        totalListenTime,
+        averageListenTime: Math.round(totalListenTime / totalAudioQuestions)
+      };
+
+      // 按Part分类统计（基于问题ID判断Part）
+      const partBreakdown: any = {};
+      const partGroups = allAudioRecords.reduce((groups, record) => {
+        // 从questionId中提取Part信息，或使用默认分类
+        let part = 'Unknown';
+        if (record.questionId.includes('part1') || record.questionId.includes('Part 1')) {
+          part = 'Part 1';
+        } else if (record.questionId.includes('part2') || record.questionId.includes('Part 2')) {
+          part = 'Part 2';
+        } else if (record.questionId.includes('part3') || record.questionId.includes('Part 3')) {
+          part = 'Part 3';
+        } else if (record.questionId.includes('part4') || record.questionId.includes('Part 4')) {
+          part = 'Part 4';
+        }
+
+        if (!groups[part]) {
+          groups[part] = [];
+        }
+        groups[part].push(record);
+        return groups;
+      }, {} as any);
+
+      Object.keys(partGroups).forEach(part => {
+        const records = partGroups[part];
+        const avgPlayCount = Math.round((records.reduce((sum: number, r: any) => sum + r.playCount, 0) / records.length) * 100) / 100;
+        const completionRate = Math.round((records.filter((r: any) => r.completedListening).length / records.length) * 100);
+        const avgListenTime = Math.round(records.reduce((sum: number, r: any) => sum + r.totalListenTime, 0) / records.length);
+
+        partBreakdown[part] = {
+          questionCount: records.length,
+          averagePlayCount: avgPlayCount,
+          completionRate,
+          averageListenTime: avgListenTime
+        };
+      });
+
+      res.json({
+        success: true,
+        data: {
+          totalListeningSessions,
+          totalAudioQuestions,
+          listeningStats,
+          partBreakdown
+        },
+        message: '获取听力分析成功'
+      });
+
+    } catch (error) {
+      console.error('❌ Get listening analytics error:', error);
+      res.status(500).json({
+        success: false,
+        error: '获取听力分析失败'
+      });
+    }
+  }
+);
+
 export default router;

@@ -70,6 +70,7 @@ model User {
   
   // 关联数据
   practiceRecords   PracticeRecord[]
+  practiceSessions  PracticeSession[]    // 新增：支持时间数据的练习会话
   chatSessions      ChatSession[]
   vocabularyItems   VocabularyItem[]
   studyProgress     StudyProgress[]
@@ -654,4 +655,86 @@ model EmailStats {
   updatedAt         DateTime    @updatedAt
   
   @@map("email_stats")
+}
+
+// ===============================
+// 时间数据和听力功能支持
+// 用于前端计时功能和学习分析
+// ===============================
+
+// 练习会话表（扩展支持时间数据）
+model PracticeSession {
+  id                    String                 @id @default(cuid())
+  userId                String
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sessionType           String                 @default("quick_practice")
+  questions             Json                   @default("[]")
+  userAnswers           Json                   @default("[]")
+  score                 Int?
+  completed             Boolean                @default(false)
+
+  // 时间统计字段
+  questionTimes         Json?                  // 前端时间数据数组
+  totalTimeSpent        Int?                   // 总用时（秒）
+  averageTimePerQuestion Int?                  // 平均每题用时（秒）
+  overtimeQuestions     Int?                   // 超时题目数
+
+  // 关联的详细时间记录
+  questionTimeRecords   QuestionTimeRecord[]
+  audioPlaybackRecords  AudioPlaybackRecord[]
+
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  @@map("practice_sessions")
+}
+
+// 题目时间记录表（详细记录每题时间数据）
+model QuestionTimeRecord {
+  id               String          @id @default(cuid())
+  sessionId        String
+  session          PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  questionId       String
+  questionIndex    Int
+  questionType     String          // 'listening' | 'reading'
+  questionCategory String          // 'Part 1', 'Part 2', etc.
+
+  timeSpent        Int             // 实际用时（秒）
+  timeLimit        Int?            // 建议用时（秒），听力题可为null
+  isOvertime       Boolean         @default(false)
+
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@map("question_time_records")
+  @@index([sessionId])
+  @@index([questionCategory])
+  @@index([questionType])
+}
+
+// 音频播放记录表（记录听力题目播放行为）
+model AudioPlaybackRecord {
+  id                 String          @id @default(cuid())
+  sessionId          String
+  session            PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  questionId         String
+  questionIndex      Int
+  audioUrl           String
+  audioDuration      Int?            // 音频时长（秒）
+
+  playCount          Int             @default(0)     // 播放次数
+  totalListenTime    Int             @default(0)     // 总听音时间（秒）
+  completedListening Boolean         @default(false) // 是否完整听完
+
+  firstPlayedAt      DateTime?
+  lastPlayedAt       DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@map("audio_playback_records")
+  @@index([sessionId])
+  @@index([questionId])
 }

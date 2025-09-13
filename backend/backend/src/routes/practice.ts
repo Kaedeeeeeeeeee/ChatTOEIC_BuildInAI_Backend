@@ -788,4 +788,215 @@ async function updateStudyProgress(userId: string, practiceRecord: any) {
   });
 }
 
+// =================================
+// 时间数据和听力功能API端点
+// 支持前端时间数据同步和分析
+// =================================
+
+// 保存练习会话的时间数据
+router.post('/sessions/:sessionId/times',
+  authenticateToken,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const { questionTimes } = req.body;
+
+      console.log(`📊 Saving time data for session ${sessionId}, ${questionTimes?.length} records`);
+
+      if (!questionTimes || !Array.isArray(questionTimes)) {
+        return res.status(400).json({
+          success: false,
+          error: '缺少或无效的时间数据'
+        });
+      }
+
+      // 验证会话是否存在且属于当前用户
+      const session = await prisma.practiceSession.findFirst({
+        where: {
+          id: sessionId,
+          userId: req.user!.userId
+        }
+      });
+
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          error: '练习会话不存在'
+        });
+      }
+
+      // 批量插入时间记录
+      const timeRecords = questionTimes.map((qt: any) => ({
+        id: uuidv4(),
+        sessionId: sessionId,
+        questionId: qt.questionId,
+        questionIndex: qt.questionIndex,
+        questionType: qt.questionType,
+        questionCategory: qt.questionCategory,
+        timeSpent: qt.timeSpent,
+        timeLimit: qt.timeLimit,
+        isOvertime: qt.isOvertime,
+        createdAt: new Date()
+      }));
+
+      await prisma.questionTimeRecord.createMany({
+        data: timeRecords,
+        skipDuplicates: true
+      });
+
+      // 更新练习会话的时间统计
+      const totalTime = questionTimes.reduce((sum: number, qt: any) => sum + qt.timeSpent, 0);
+      const avgTime = Math.round(totalTime / questionTimes.length);
+      const overtimeCount = questionTimes.filter((qt: any) => qt.isOvertime).length;
+
+      await prisma.practiceSession.update({
+        where: { id: sessionId },
+        data: {
+          totalTimeSpent: totalTime,
+          averageTimePerQuestion: avgTime,
+          overtimeQuestions: overtimeCount,
+          questionTimes: questionTimes
+        }
+      });
+
+      res.json({
+        success: true,
+        data: {
+          sessionId,
+          recordsCreated: timeRecords.length,
+          analytics: {
+            totalTime,
+            averageTime: avgTime,
+            overtimeQuestions: overtimeCount
+          }
+        },
+        message: '时间数据保存成功'
+      });
+
+    } catch (error) {
+      console.error('❌ Save time data error:', error);
+      res.status(500).json({
+        success: false,
+        error: '保存时间数据失败'
+      });
+    }
+  }
+);
+
+// 保存音频播放记录
+router.post('/sessions/:sessionId/audio',
+  authenticateToken,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const { audioRecords } = req.body;
+
+      console.log(`🎵 Saving audio data for session ${sessionId}, ${audioRecords?.length} records`);
+
+      if (!audioRecords || !Array.isArray(audioRecords)) {
+        return res.status(400).json({
+          success: false,
+          error: '缺少或无效的音频数据'
+        });
+      }
+
+      // 验证会话是否存在且属于当前用户
+      const session = await prisma.practiceSession.findFirst({
+        where: {
+          id: sessionId,
+          userId: req.user!.userId
+        }
+      });
+
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          error: '练习会话不存在'
+        });
+      }
+
+      // 批量插入音频播放记录
+      const playbackRecords = audioRecords.map((ar: any) => ({
+        id: uuidv4(),
+        sessionId: sessionId,
+        questionId: ar.questionId,
+        questionIndex: ar.questionIndex,
+        audioUrl: ar.audioUrl,
+        audioDuration: ar.audioDuration,
+        playCount: ar.playCount || 0,
+        totalListenTime: ar.totalListenTime || 0,
+        completedListening: ar.completedListening || false,
+        firstPlayedAt: new Date(),
+        lastPlayedAt: new Date(),
+        createdAt: new Date()
+      }));
+
+      await prisma.audioPlaybackRecord.createMany({
+        data: playbackRecords,
+        skipDuplicates: true
+      });
+
+      res.json({
+        success: true,
+        data: {
+          sessionId,
+          recordsCreated: playbackRecords.length
+        },
+        message: '音频播放数据保存成功'
+      });
+
+    } catch (error) {
+      console.error('❌ Save audio data error:', error);
+      res.status(500).json({
+        success: false,
+        error: '保存音频数据失败'
+      });
+    }
+  }
+);
+
+// 获取会话的时间数据
+router.get('/sessions/:sessionId/times',
+  authenticateToken,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+
+      // 验证会话权限
+      const session = await prisma.practiceSession.findFirst({
+        where: {
+          id: sessionId,
+          userId: req.user!.userId
+        }
+      });
+
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          error: '练习会话不存在'
+        });
+      }
+
+      // 获取时间记录
+      const timeRecords = await prisma.questionTimeRecord.findMany({
+        where: { sessionId },
+        orderBy: { questionIndex: 'asc' }
+      });
+
+      res.json({
+        success: true,
+        data: timeRecords,
+        message: '获取时间数据成功'
+      });
+
+    } catch (error) {
+      console.error('❌ Get time data error:', error);
+      res.status(500).json({
+        success: false,
+        error: '获取时间数据失败'
+      });
+    }
+  }
+);
+
 export default router;

@@ -4417,13 +4417,12 @@ var GeminiService = class {
       throw new Error("\u7B54\u6848\u89E3\u91CA\u751F\u6210\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5");
     }
   }
-  async getWordDefinition(word, context) {
+  async getWordDefinition(word) {
     try {
       const prompt = `
 \u4F5C\u4E3A\u82F1\u8BED\u8BCD\u6C47\u4E13\u5BB6\uFF0C\u8BF7\u4E3A\u4EE5\u4E0B\u5355\u8BCD\u63D0\u4F9B\u8BE6\u7EC6\u7684\u8BCD\u6C47\u4FE1\u606F\uFF0C\u7279\u522B\u9002\u5408TOEIC\u5B66\u4E60\u8005\uFF1A
 
 \u5355\u8BCD\uFF1A${word}
-${context ? `\u51FA\u73B0\u8BED\u5883\uFF1A${context}` : ""}
 
 \u8BF7\u4EE5JSON\u683C\u5F0F\u8FD4\u56DE\uFF0C\u5305\u542B\u4EE5\u4E0B\u4FE1\u606F\uFF1A
 {
@@ -4432,12 +4431,16 @@ ${context ? `\u51FA\u73B0\u8BED\u5883\uFF1A${context}` : ""}
   "meanings": [
     {
       "partOfSpeech": "\u82F1\u6587\u8BCD\u6027\uFF08\u5982noun\u3001verb\u3001adjective\u7B49\uFF09",
-      "partOfSpeechCN": "\u4E2D\u6587\u8BCD\u6027\uFF08\u5982\u540D\u8BCD\u3001\u52A8\u8BCD\u3001\u5F62\u5BB9\u8BCD\u7B49\uFF09",
+      "partOfSpeechCN": "\u4E2D\u6587\u8BCD\u6027\uFF08\u5982\u540D\u8BCD\u3001\u52A8\u8BCD\u3001\u5F62\u5BB9\u8BCD\u7B49\uFF09", 
       "partOfSpeechLocal": "\u4E2D\u6587\u8BCD\u6027",
       "definitions": [
         {
-          "definition": "\u8BE6\u7EC6\u7684\u4E2D\u6587\u91CA\u4E49",
-          "example": "\u82F1\u6587\u4F8B\u53E5\uFF08\u6700\u597D\u4E0ETOEIC\u76F8\u5173\uFF09"
+          "definition": "\u8BE6\u7EC6\u7684\u4E2D\u6587\u91CA\u4E491",
+          "example": "\u82F1\u6587\u4F8B\u53E51\uFF08\u6700\u597D\u4E0ETOEIC/\u5546\u52A1\u76F8\u5173\uFF09"
+        },
+        {
+          "definition": "\u8BE6\u7EC6\u7684\u4E2D\u6587\u91CA\u4E492\uFF08\u5982\u679C\u6709\u591A\u4E2A\u542B\u4E49\uFF09",
+          "example": "\u82F1\u6587\u4F8B\u53E52\uFF08\u6700\u597D\u4E0ETOEIC/\u5546\u52A1\u76F8\u5173\uFF09"
         }
       ]
     }
@@ -4445,9 +4448,11 @@ ${context ? `\u51FA\u73B0\u8BED\u5883\uFF1A${context}` : ""}
 }
 
 \u8981\u6C42\uFF1A
+- \u6BCF\u4E2A\u8BCD\u6027\u63D0\u4F9B1-2\u4E2A\u4E3B\u8981\u91CA\u4E49\uFF0C\u6BCF\u4E2A\u91CA\u4E49\u914D\u4E00\u4E2A\u76F8\u5E94\u7684\u4F8B\u53E5
 - \u91CA\u4E49\u5FC5\u987B\u51C6\u786E\u3001\u901A\u4FD7\u6613\u61C2
-- \u4F8B\u53E5\u8981\u5B9E\u7528\uFF0C\u6700\u597D\u4E0E\u5546\u52A1\u3001\u804C\u573A\u76F8\u5173
-- \u5982\u679C\u5355\u8BCD\u6709\u591A\u4E2A\u8BCD\u6027\uFF0C\u8BF7\u63D0\u4F9B\u4E3B\u8981\u76842-3\u4E2A
+- \u4F8B\u53E5\u8981\u5B9E\u7528\uFF0C\u6700\u597D\u4E0E\u5546\u52A1\u3001\u804C\u573A\u3001\u65E5\u5E38\u4EA4\u6D41\u76F8\u5173
+- \u5982\u679C\u5355\u8BCD\u6709\u591A\u4E2A\u8BCD\u6027\uFF0C\u8BF7\u63D0\u4F9B\u4E3B\u8981\u76842-3\u4E2A\u8BCD\u6027
+- \u4F18\u5148\u63D0\u4F9BTOEIC\u8003\u8BD5\u4E2D\u5E38\u89C1\u7684\u8BCD\u4E49\u548C\u7528\u6CD5
 
 **\u91CD\u8981\uFF1A\u8BF7\u76F4\u63A5\u8FD4\u56DEJSON\u683C\u5F0F\uFF0C\u4E0D\u8981\u4F7F\u7528Markdown\u4EE3\u7801\u5757\u5305\u88C5\u3002**
       `;
@@ -5247,6 +5252,179 @@ async function updateStudyProgress(userId, practiceRecord) {
     }
   });
 }
+router4.post(
+  "/sessions/:sessionId/times",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { questionTimes } = req.body;
+      console.log(`\u{1F4CA} Saving time data for session ${sessionId}, ${questionTimes?.length} records`);
+      if (!questionTimes || !Array.isArray(questionTimes)) {
+        return res.status(400).json({
+          success: false,
+          error: "\u7F3A\u5C11\u6216\u65E0\u6548\u7684\u65F6\u95F4\u6570\u636E"
+        });
+      }
+      const session = await prisma.practiceSession.findFirst({
+        where: {
+          id: sessionId,
+          userId: req.user.userId
+        }
+      });
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          error: "\u7EC3\u4E60\u4F1A\u8BDD\u4E0D\u5B58\u5728"
+        });
+      }
+      const timeRecords = questionTimes.map((qt) => ({
+        id: uuidv4(),
+        sessionId,
+        questionId: qt.questionId,
+        questionIndex: qt.questionIndex,
+        questionType: qt.questionType,
+        questionCategory: qt.questionCategory,
+        timeSpent: qt.timeSpent,
+        timeLimit: qt.timeLimit,
+        isOvertime: qt.isOvertime,
+        createdAt: /* @__PURE__ */ new Date()
+      }));
+      await prisma.questionTimeRecord.createMany({
+        data: timeRecords,
+        skipDuplicates: true
+      });
+      const totalTime = questionTimes.reduce((sum, qt) => sum + qt.timeSpent, 0);
+      const avgTime = Math.round(totalTime / questionTimes.length);
+      const overtimeCount = questionTimes.filter((qt) => qt.isOvertime).length;
+      await prisma.practiceSession.update({
+        where: { id: sessionId },
+        data: {
+          totalTimeSpent: totalTime,
+          averageTimePerQuestion: avgTime,
+          overtimeQuestions: overtimeCount,
+          questionTimes
+        }
+      });
+      res.json({
+        success: true,
+        data: {
+          sessionId,
+          recordsCreated: timeRecords.length,
+          analytics: {
+            totalTime,
+            averageTime: avgTime,
+            overtimeQuestions: overtimeCount
+          }
+        },
+        message: "\u65F6\u95F4\u6570\u636E\u4FDD\u5B58\u6210\u529F"
+      });
+    } catch (error) {
+      console.error("\u274C Save time data error:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u4FDD\u5B58\u65F6\u95F4\u6570\u636E\u5931\u8D25"
+      });
+    }
+  }
+);
+router4.post(
+  "/sessions/:sessionId/audio",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { audioRecords } = req.body;
+      console.log(`\u{1F3B5} Saving audio data for session ${sessionId}, ${audioRecords?.length} records`);
+      if (!audioRecords || !Array.isArray(audioRecords)) {
+        return res.status(400).json({
+          success: false,
+          error: "\u7F3A\u5C11\u6216\u65E0\u6548\u7684\u97F3\u9891\u6570\u636E"
+        });
+      }
+      const session = await prisma.practiceSession.findFirst({
+        where: {
+          id: sessionId,
+          userId: req.user.userId
+        }
+      });
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          error: "\u7EC3\u4E60\u4F1A\u8BDD\u4E0D\u5B58\u5728"
+        });
+      }
+      const playbackRecords = audioRecords.map((ar) => ({
+        id: uuidv4(),
+        sessionId,
+        questionId: ar.questionId,
+        questionIndex: ar.questionIndex,
+        audioUrl: ar.audioUrl,
+        audioDuration: ar.audioDuration,
+        playCount: ar.playCount || 0,
+        totalListenTime: ar.totalListenTime || 0,
+        completedListening: ar.completedListening || false,
+        firstPlayedAt: /* @__PURE__ */ new Date(),
+        lastPlayedAt: /* @__PURE__ */ new Date(),
+        createdAt: /* @__PURE__ */ new Date()
+      }));
+      await prisma.audioPlaybackRecord.createMany({
+        data: playbackRecords,
+        skipDuplicates: true
+      });
+      res.json({
+        success: true,
+        data: {
+          sessionId,
+          recordsCreated: playbackRecords.length
+        },
+        message: "\u97F3\u9891\u64AD\u653E\u6570\u636E\u4FDD\u5B58\u6210\u529F"
+      });
+    } catch (error) {
+      console.error("\u274C Save audio data error:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u4FDD\u5B58\u97F3\u9891\u6570\u636E\u5931\u8D25"
+      });
+    }
+  }
+);
+router4.get(
+  "/sessions/:sessionId/times",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const session = await prisma.practiceSession.findFirst({
+        where: {
+          id: sessionId,
+          userId: req.user.userId
+        }
+      });
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          error: "\u7EC3\u4E60\u4F1A\u8BDD\u4E0D\u5B58\u5728"
+        });
+      }
+      const timeRecords = await prisma.questionTimeRecord.findMany({
+        where: { sessionId },
+        orderBy: { questionIndex: "asc" }
+      });
+      res.json({
+        success: true,
+        data: timeRecords,
+        message: "\u83B7\u53D6\u65F6\u95F4\u6570\u636E\u6210\u529F"
+      });
+    } catch (error) {
+      console.error("\u274C Get time data error:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u83B7\u53D6\u65F6\u95F4\u6570\u636E\u5931\u8D25"
+      });
+    }
+  }
+);
 var practice_default = router4;
 
 // src/routes/chat.ts
@@ -5898,7 +6076,7 @@ router6.post(
       console.log(`\u{1F680} [\u540E\u7AEFAPI] \u8BF7\u6C42\u4F53:`, req.body);
       console.log(`\u{1F680} [\u540E\u7AEFAPI] \u7528\u6237\u4FE1\u606F:`, req.user);
       const { word, language = "zh" } = req.body;
-      const userId = req.user.userId;
+      const userId = req.user?.userId;
       if (!word || typeof word !== "string") {
         console.log(`\u274C [\u540E\u7AEFAPI] \u65E0\u6548\u7684\u5355\u8BCD\u53C2\u6570: ${word}`);
         return res.status(400).json({
@@ -5906,15 +6084,18 @@ router6.post(
           error: "\u8BF7\u63D0\u4F9B\u6709\u6548\u7684\u5355\u8BCD"
         });
       }
-      console.log(`\u{1F50D} [\u540E\u7AEFAPI] \u5F00\u59CB\u5904\u7406\u8BCD\u6C47\u5B9A\u4E49: word="${word}", language="${language}", user="${userId}"`);
-      console.log(`\u{1F5C4}\uFE0F [\u540E\u7AEFAPI] \u67E5\u8BE2\u7528\u6237\u8BCD\u6C47\u8BB0\u5F55: userId="${userId}", word="${word.toLowerCase()}"`);
-      let existingWord = await prisma.vocabularyItem.findFirst({
-        where: {
-          userId,
-          word: word.toLowerCase()
-        }
-      });
-      console.log(`\u{1F5C4}\uFE0F [\u540E\u7AEFAPI] \u7528\u6237\u8BCD\u6C47\u67E5\u8BE2\u7ED3\u679C:`, existingWord ? "\u627E\u5230\u8BB0\u5F55" : "\u672A\u627E\u5230\u8BB0\u5F55");
+      console.log(`\u{1F50D} [\u540E\u7AEFAPI] \u5F00\u59CB\u5904\u7406\u8BCD\u6C47\u5B9A\u4E49: word="${word}", language="${language}", user="${userId || "anonymous"}"`);
+      let existingWord = null;
+      if (userId) {
+        console.log(`\u{1F5C4}\uFE0F [\u540E\u7AEFAPI] \u67E5\u8BE2\u7528\u6237\u8BCD\u6C47\u8BB0\u5F55: userId="${userId}", word="${word.toLowerCase()}"`);
+        existingWord = await prisma.vocabularyItem.findFirst({
+          where: {
+            userId,
+            word: word.toLowerCase()
+          }
+        });
+        console.log(`\u{1F5C4}\uFE0F [\u540E\u7AEFAPI] \u7528\u6237\u8BCD\u6C47\u67E5\u8BE2\u7ED3\u679C:`, existingWord ? "\u627E\u5230\u8BB0\u5F55" : "\u672A\u627E\u5230\u8BB0\u5F55");
+      }
       if (!existingWord) {
         console.log(`\u{1F5C4}\uFE0F [\u540E\u7AEFAPI] \u67E5\u8BE2\u5176\u4ED6\u7528\u6237\u8BCD\u6C47\u8BB0\u5F55: word="${word.toLowerCase()}"`);
         existingWord = await prisma.vocabularyItem.findFirst({
@@ -10485,6 +10666,247 @@ router11.get(
     }
   }
 );
+router11.get(
+  "/time-analytics",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const userId = req.user.userId;
+      const { period = "all", type = "all", category } = req.query;
+      let dateFilter = {};
+      const now = /* @__PURE__ */ new Date();
+      switch (period) {
+        case "week":
+          dateFilter = {
+            createdAt: {
+              gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1e3)
+            }
+          };
+          break;
+        case "month":
+          dateFilter = {
+            createdAt: {
+              gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1e3)
+            }
+          };
+          break;
+        case "year":
+          dateFilter = {
+            createdAt: {
+              gte: new Date(now.getTime() - 365 * 24 * 60 * 60 * 1e3)
+            }
+          };
+          break;
+        default:
+          break;
+      }
+      let typeFilter = {};
+      if (type !== "all") {
+        typeFilter = { questionType: type };
+      }
+      let categoryFilter = {};
+      if (category) {
+        categoryFilter = { questionCategory: category };
+      }
+      const sessions = await prisma.practiceSession.findMany({
+        where: {
+          userId,
+          ...dateFilter
+        },
+        include: {
+          questionTimeRecords: {
+            where: {
+              ...typeFilter,
+              ...categoryFilter
+            }
+          }
+        }
+      });
+      const allTimeRecords = sessions.flatMap((s) => s.questionTimeRecords);
+      const totalSessions = sessions.length;
+      const totalQuestions = allTimeRecords.length;
+      if (totalQuestions === 0) {
+        return res.json({
+          success: true,
+          data: {
+            period,
+            totalSessions: 0,
+            totalQuestions: 0,
+            timeStats: {
+              totalTime: 0,
+              averagePerQuestion: 0,
+              averagePerSession: 0,
+              overtimeQuestions: 0
+            },
+            partBreakdown: {},
+            trendData: []
+          },
+          message: "\u6682\u65E0\u65F6\u95F4\u6570\u636E"
+        });
+      }
+      const totalTime = allTimeRecords.reduce((sum, record) => sum + record.timeSpent, 0);
+      const averagePerQuestion = Math.round(totalTime / totalQuestions);
+      const averagePerSession = Math.round(totalTime / totalSessions);
+      const overtimeQuestions = allTimeRecords.filter((record) => record.isOvertime).length;
+      const partBreakdown = {};
+      const partGroups = allTimeRecords.reduce((groups, record) => {
+        const part = record.questionCategory;
+        if (!groups[part]) {
+          groups[part] = [];
+        }
+        groups[part].push(record);
+        return groups;
+      }, {});
+      Object.keys(partGroups).forEach((part) => {
+        const records = partGroups[part];
+        const avgTime = Math.round(records.reduce((sum, r) => sum + r.timeSpent, 0) / records.length);
+        const avgLimit = Math.round(records.reduce((sum, r) => sum + (r.timeLimit || 0), 0) / records.length);
+        const efficiency = avgLimit > 0 ? Math.round(avgTime / avgLimit * 100) : 100;
+        const overtimeCount = records.filter((r) => r.isOvertime).length;
+        partBreakdown[part] = {
+          questionCount: records.length,
+          averageTime: avgTime,
+          recommendedTime: avgLimit,
+          efficiency,
+          overtimeCount
+        };
+      });
+      const trendData = [];
+      for (let i = 29; i >= 0; i--) {
+        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1e3);
+        const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1e3);
+        const dayRecords = allTimeRecords.filter((record) => {
+          const recordDate = new Date(record.createdAt);
+          return recordDate >= dayStart && recordDate < dayEnd;
+        });
+        if (dayRecords.length > 0) {
+          const dayAvgTime = Math.round(dayRecords.reduce((sum, r) => sum + r.timeSpent, 0) / dayRecords.length);
+          const dayAvgLimit = Math.round(dayRecords.reduce((sum, r) => sum + (r.timeLimit || 0), 0) / dayRecords.length);
+          const dayEfficiency = dayAvgLimit > 0 ? Math.round(dayAvgTime / dayAvgLimit * 100) : 100;
+          trendData.push({
+            date: dayStart.toISOString().split("T")[0],
+            averageTime: dayAvgTime,
+            efficiency: dayEfficiency
+          });
+        }
+      }
+      res.json({
+        success: true,
+        data: {
+          period,
+          totalSessions,
+          totalQuestions,
+          timeStats: {
+            totalTime,
+            averagePerQuestion,
+            averagePerSession,
+            overtimeQuestions
+          },
+          partBreakdown,
+          trendData
+        },
+        message: "\u83B7\u53D6\u65F6\u95F4\u5206\u6790\u6210\u529F"
+      });
+    } catch (error) {
+      console.error("\u274C Get time analytics error:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u83B7\u53D6\u65F6\u95F4\u5206\u6790\u5931\u8D25"
+      });
+    }
+  }
+);
+router11.get(
+  "/listening-analytics",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const userId = req.user.userId;
+      const sessions = await prisma.practiceSession.findMany({
+        where: { userId },
+        include: {
+          audioPlaybackRecords: true
+        }
+      });
+      const allAudioRecords = sessions.flatMap((s) => s.audioPlaybackRecords);
+      const totalListeningSessions = sessions.filter((s) => s.audioPlaybackRecords.length > 0).length;
+      const totalAudioQuestions = allAudioRecords.length;
+      if (totalAudioQuestions === 0) {
+        return res.json({
+          success: true,
+          data: {
+            totalListeningSessions: 0,
+            totalAudioQuestions: 0,
+            listeningStats: {
+              averagePlayCount: 0,
+              completionRate: 0,
+              totalListenTime: 0,
+              averageListenTime: 0
+            },
+            partBreakdown: {}
+          },
+          message: "\u6682\u65E0\u542C\u529B\u6570\u636E"
+        });
+      }
+      const totalPlayCount = allAudioRecords.reduce((sum, record) => sum + record.playCount, 0);
+      const totalListenTime = allAudioRecords.reduce((sum, record) => sum + record.totalListenTime, 0);
+      const completedCount = allAudioRecords.filter((record) => record.completedListening).length;
+      const listeningStats = {
+        averagePlayCount: Math.round(totalPlayCount / totalAudioQuestions * 100) / 100,
+        completionRate: Math.round(completedCount / totalAudioQuestions * 100),
+        totalListenTime,
+        averageListenTime: Math.round(totalListenTime / totalAudioQuestions)
+      };
+      const partBreakdown = {};
+      const partGroups = allAudioRecords.reduce((groups, record) => {
+        let part = "Unknown";
+        if (record.questionId.includes("part1") || record.questionId.includes("Part 1")) {
+          part = "Part 1";
+        } else if (record.questionId.includes("part2") || record.questionId.includes("Part 2")) {
+          part = "Part 2";
+        } else if (record.questionId.includes("part3") || record.questionId.includes("Part 3")) {
+          part = "Part 3";
+        } else if (record.questionId.includes("part4") || record.questionId.includes("Part 4")) {
+          part = "Part 4";
+        }
+        if (!groups[part]) {
+          groups[part] = [];
+        }
+        groups[part].push(record);
+        return groups;
+      }, {});
+      Object.keys(partGroups).forEach((part) => {
+        const records = partGroups[part];
+        const avgPlayCount = Math.round(records.reduce((sum, r) => sum + r.playCount, 0) / records.length * 100) / 100;
+        const completionRate = Math.round(records.filter((r) => r.completedListening).length / records.length * 100);
+        const avgListenTime = Math.round(records.reduce((sum, r) => sum + r.totalListenTime, 0) / records.length);
+        partBreakdown[part] = {
+          questionCount: records.length,
+          averagePlayCount: avgPlayCount,
+          completionRate,
+          averageListenTime: avgListenTime
+        };
+      });
+      res.json({
+        success: true,
+        data: {
+          totalListeningSessions,
+          totalAudioQuestions,
+          listeningStats,
+          partBreakdown
+        },
+        message: "\u83B7\u53D6\u542C\u529B\u5206\u6790\u6210\u529F"
+      });
+    } catch (error) {
+      console.error("\u274C Get listening analytics error:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u83B7\u53D6\u542C\u529B\u5206\u6790\u5931\u8D25"
+      });
+    }
+  }
+);
 var users_default = router11;
 
 // src/routes/database.ts
@@ -13106,6 +13528,43 @@ app.use("/api/auth", trackAuthActivity, auth_default);
 app.use("/api/practice", trackPracticeActivity, practice_default);
 app.use("/api/questions", trackPracticeActivity, practice_default);
 app.use("/api/chat", trackAIInteraction, chat_default);
+app.post("/api/word-definition", async (req, res) => {
+  try {
+    const { word, language = "zh" } = req.body || {};
+    console.log("\u{1F6A8} [EMERGENCY BYPASS] Word definition request", { word, language });
+    if (!word || typeof word !== "string") {
+      return res.status(400).json({ success: false, error: "\u8BF7\u63D0\u4F9B\u6709\u6548\u7684\u5355\u8BCD" });
+    }
+    const definition = await geminiService.getWordDefinition(word);
+    console.log("\u{1F6A8} [EMERGENCY BYPASS] AI definition retrieved successfully");
+    return res.json({
+      success: true,
+      data: {
+        word,
+        phonetic: definition.phonetic || "",
+        meanings: definition.meanings || [],
+        definitionLoading: false,
+        definitionError: false
+      }
+    });
+  } catch (error) {
+    console.error("\u{1F6A8} [EMERGENCY BYPASS] Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "\u83B7\u53D6\u8BCD\u6C47\u5B9A\u4E49\u5931\u8D25",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
+app.get("/api/word-definition-test", (req, res) => {
+  res.json({ success: true, message: "Word definition endpoint available", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+});
+app.get("/api/ultra-simple-test", (req, res) => {
+  res.json({ message: "Ultra simple test works", timestamp: Date.now() });
+});
+app.post("/api/simple-post-test", (req, res) => {
+  res.json({ message: "Simple POST test works", body: req.body });
+});
 app.use("/api/vocabulary", trackVocabularyActivity, vocabulary_default);
 app.use("/api/vocabulary-minimal", vocabulary_minimal_default);
 app.get("/api/billing-test", (req, res) => {
