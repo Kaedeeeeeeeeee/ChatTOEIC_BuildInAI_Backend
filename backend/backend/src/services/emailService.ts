@@ -1,9 +1,10 @@
 /**
- * 邮件发送服务 - 基于Resend + React Email
+ * 邮件发送服务 - 支持Resend和Gmail SMTP
  */
 
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
+import nodemailer from 'nodemailer';
 import React from 'react';
 
 // 邮件配置接口
@@ -30,23 +31,64 @@ interface EmailStats {
 }
 
 export class EmailService {
-  private resend: Resend;
+  private resend?: Resend;
+  private transporter?: nodemailer.Transporter;
   private defaultFrom: string;
   private stats: EmailStats;
+  private useGmailSMTP: boolean;
 
   constructor() {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      throw new Error('RESEND_API_KEY environment variable is required');
+    // 检查是否使用 Gmail SMTP
+    const smtpHost = process.env.SMTP_HOST;
+    this.useGmailSMTP = !!smtpHost;
+
+    if (this.useGmailSMTP) {
+      // 使用 Gmail SMTP 配置
+      this.initializeGmailSMTP();
+    } else {
+      // 使用 Resend 配置
+      this.initializeResend();
     }
 
-    this.resend = new Resend(apiKey);
     this.defaultFrom = process.env.EMAIL_FROM || 'ChatTOEIC <noreply@chattoeic.com>';
     this.stats = {
       sent: 0,
       failed: 0,
       pending: 0
     };
+  }
+
+  private initializeGmailSMTP() {
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpPort = parseInt(process.env.SMTP_PORT || '587');
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+
+    if (!smtpHost || !smtpUser || !smtpPass) {
+      throw new Error('Gmail SMTP configuration incomplete. Required: SMTP_HOST, SMTP_USER, SMTP_PASS');
+    }
+
+    this.transporter = nodemailer.createTransporter({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465, // true for 465, false for other ports
+      auth: {
+        user: smtpUser,
+        pass: smtpPass
+      }
+    });
+
+    console.log('📧 Email service initialized with Gmail SMTP');
+  }
+
+  private initializeResend() {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      throw new Error('RESEND_API_KEY environment variable is required when not using Gmail SMTP');
+    }
+
+    this.resend = new Resend(apiKey);
+    console.log('📧 Email service initialized with Resend');
   }
 
   /**
@@ -58,29 +100,16 @@ export class EmailService {
 
       // 渲染React邮件模板为HTML
       const html = await render(config.template);
-      
-      // 发送邮件
-      const response = await this.resend.emails.send({
-        from: config.from || this.defaultFrom,
-        to: Array.isArray(config.to) ? config.to : [config.to],
-        subject: config.subject,
-        html,
-        replyTo: config.replyTo
-      });
 
-      this.stats.pending--;
-      this.stats.sent++;
-
-      console.log('📧 Email sent successfully:', {
-        id: response.data?.id,
-        to: config.to,
-        subject: config.subject
-      });
-
-      return {
-        id: response.data?.id || 'unknown',
-        success: true
-      };
+      if (this.useGmailSMTP && this.transporter) {
+        // 使用 Gmail SMTP 发送邮件
+        return await this.sendEmailViaGmail(config, html);
+      } else if (this.resend) {
+        // 使用 Resend 发送邮件
+        return await this.sendEmailViaResend(config, html);
+      } else {
+        throw new Error('No email service configured');
+      }
 
     } catch (error: any) {
       this.stats.pending--;
@@ -98,6 +127,54 @@ export class EmailService {
         error: error.message
       };
     }
+  }
+
+  private async sendEmailViaGmail(config: EmailConfig, html: string): Promise<EmailResult> {
+    const info = await this.transporter!.sendMail({
+      from: config.from || this.defaultFrom,
+      to: Array.isArray(config.to) ? config.to.join(', ') : config.to,
+      subject: config.subject,
+      html,
+      replyTo: config.replyTo
+    });
+
+    this.stats.pending--;
+    this.stats.sent++;
+
+    console.log('📧 Email sent successfully via Gmail SMTP:', {
+      messageId: info.messageId,
+      to: config.to,
+      subject: config.subject
+    });
+
+    return {
+      id: info.messageId || 'gmail-smtp',
+      success: true
+    };
+  }
+
+  private async sendEmailViaResend(config: EmailConfig, html: string): Promise<EmailResult> {
+    const response = await this.resend!.emails.send({
+      from: config.from || this.defaultFrom,
+      to: Array.isArray(config.to) ? config.to : [config.to],
+      subject: config.subject,
+      html,
+      replyTo: config.replyTo
+    });
+
+    this.stats.pending--;
+    this.stats.sent++;
+
+    console.log('📧 Email sent successfully via Resend:', {
+      id: response.data?.id,
+      to: config.to,
+      subject: config.subject
+    });
+
+    return {
+      id: response.data?.id || 'resend',
+      success: true
+    };
   }
 
   /**
