@@ -279,7 +279,7 @@ model VocabularyItem {
   language        String    @default("en")
   reading         String?
   jlpt            String[]
-  commonality     Boolean?
+  commonality     String?   // common/uncommon/rare
   
   notes           String?
   mastered        Boolean   @default(false)

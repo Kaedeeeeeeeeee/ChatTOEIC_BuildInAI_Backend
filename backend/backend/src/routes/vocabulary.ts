@@ -40,23 +40,40 @@ router.post(['/words', '/'],
       
       try {
         console.log(`🔍 Fetching AI definition for word: ${word}`);
-        wordDefinition = await geminiService.getWordDefinition(word, context);
+        wordDefinition = await geminiService.getWordDefinition(word, context, 'multilingual');
         aiMeanings = wordDefinition.meanings;
         console.log(`✅ AI definition fetched for ${word}`);
       } catch (error) {
         console.warn(`⚠️ AI definition failed for ${word}, using fallback:`, error);
-        // AI失败时使用默认值
+        // AI失败时使用支持多语言的默认值
         aiMeanings = [
           {
             partOfSpeech: 'noun',
-            partOfSpeechCN: '名词', 
-            partOfSpeechLocal: '名词',
-            definitions: [
-              {
-                definition: `${word} 的释义（请点击刷新按钮获取AI翻译）`,
-                example: context || `${word} 的例句`
-              }
-            ]
+            definitions: {
+              zh: [
+                {
+                  definition: `${word} 的释义（请点击刷新按钮获取AI翻译）`,
+                  example: context || `${word} 的例句`
+                }
+              ],
+              ja: [
+                {
+                  definition: `${word} の意味（リフレッシュボタンをクリックしてAI翻訳を取得してください）`,
+                  example: context || `${word} の例文`
+                }
+              ],
+              en: [
+                {
+                  definition: `Definition of ${word} (click refresh to get AI translation)`,
+                  example: context || `Example sentence with ${word}`
+                }
+              ]
+            },
+            partOfSpeechLocal: {
+              zh: '名词',
+              ja: '名詞',
+              en: 'noun'
+            }
           }
         ];
       }
@@ -75,6 +92,8 @@ router.post(['/words', '/'],
           tags: tags || [],
           mastered: false,
           meanings: aiMeanings,
+          commonality: wordDefinition?.commonality || null,
+          jlpt: wordDefinition?.jlpt || null,
           definitionLoading: false,
           definitionError: !wordDefinition, // 如果AI失败则标记为错误
           nextReviewDate: new Date()
@@ -343,21 +362,44 @@ router.post('/definition',
         console.log(`🗄️ [后端API] 其他用户词汇查询结果:`, existingWord ? '找到记录' : '未找到记录');
       }
 
-      // 3. 如果数据库中有记录，直接返回
+      // 3. 如果数据库中有记录，根据语言返回对应翻译
       if (existingWord && existingWord.meanings) {
         console.log(`✅ [后端API] 数据库中找到词汇定义: ${word}`, existingWord.meanings);
-        
+
+        // 从多语言数据中提取对应语言的翻译
+        const meanings = Array.isArray(existingWord.meanings) ? existingWord.meanings : [existingWord.meanings];
+        const localizedMeanings = meanings.map(meaning => {
+          // 检查是否是新的多语言格式
+          if (meaning.definitions && typeof meaning.definitions === 'object') {
+            const langDefinitions = meaning.definitions[language] || meaning.definitions['zh'] || [];
+            return {
+              partOfSpeech: meaning.partOfSpeech,
+              partOfSpeechCN: meaning.partOfSpeechLocal?.[language] || meaning.partOfSpeechLocal?.['zh'] || meaning.partOfSpeechCN,
+              partOfSpeechLocal: meaning.partOfSpeechLocal?.[language] || meaning.partOfSpeechLocal?.['zh'] || meaning.partOfSpeechLocal,
+              definitions: langDefinitions
+            };
+          }
+          // 向后兼容旧格式
+          return meaning;
+        });
+
         const response = {
           success: true,
           data: {
             word,
             definition: existingWord.definition || '未找到释义',
             phonetic: existingWord.phonetic,
-            partOfSpeech: existingWord.meanings[0]?.partOfSpeech || '',
-            meanings: existingWord.meanings || []
+            partOfSpeech: localizedMeanings[0]?.partOfSpeech || '',
+            meanings: localizedMeanings,
+            // 添加完整的多语言数据，供前端缓存使用
+            multilingualData: meanings.length > 0 && meanings[0].definitions ? {
+              commonality: existingWord.commonality,
+              jlpt: existingWord.jlpt,
+              meanings: meanings
+            } : null
           }
         };
-        
+
         console.log(`📤 [后端API] 返回数据库结果:`, response);
         res.json(response);
         return;
@@ -372,15 +414,36 @@ router.post('/definition',
         
         console.log(`✅ [后端API] AI返回定义:`, wordDefinition);
 
-        // 5. 返回AI获取的结果（格式与"添加生词"一致）
+        // 5. 处理AI返回的多语言数据，提取对应语言的翻译
+        const meanings = Array.isArray(wordDefinition.meanings) ? wordDefinition.meanings : [wordDefinition.meanings];
+        const localizedMeanings = meanings.map(meaning => {
+          if (meaning.definitions && typeof meaning.definitions === 'object') {
+            const langDefinitions = meaning.definitions[language] || meaning.definitions['zh'] || [];
+            return {
+              partOfSpeech: meaning.partOfSpeech,
+              partOfSpeechCN: meaning.partOfSpeechLocal?.[language] || meaning.partOfSpeechLocal?.['zh'] || meaning.partOfSpeechCN,
+              partOfSpeechLocal: meaning.partOfSpeechLocal?.[language] || meaning.partOfSpeechLocal?.['zh'] || meaning.partOfSpeechLocal,
+              definitions: langDefinitions
+            };
+          }
+          // 向后兼容旧格式
+          return meaning;
+        });
+
         const aiResponse = {
           success: true,
           data: {
             word,
-            definition: wordDefinition.definition || '未找到释义',
+            definition: wordDefinition.definition || localizedMeanings[0]?.definitions?.[0]?.definition || '未找到释义',
             phonetic: wordDefinition.phonetic,
-            partOfSpeech: wordDefinition.partOfSpeech,
-            meanings: wordDefinition.meanings || []
+            partOfSpeech: localizedMeanings[0]?.partOfSpeech || '',
+            meanings: localizedMeanings,
+            // 添加完整的多语言数据，供前端缓存使用
+            multilingualData: {
+              commonality: wordDefinition.commonality,
+              jlpt: wordDefinition.jlpt,
+              meanings: wordDefinition.meanings
+            }
           }
         };
         

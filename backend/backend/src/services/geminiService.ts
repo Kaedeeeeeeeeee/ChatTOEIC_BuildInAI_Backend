@@ -143,42 +143,74 @@ class GeminiService {
     }
   }
 
-  async getWordDefinition(word: string): Promise<any> {
+  async getWordDefinition(word: string, context?: string, language?: string): Promise<any> {
     try {
       const prompt = `
-作为英语词汇专家，请为以下单词提供详细的词汇信息，特别适合TOEIC学习者：
+作为多语言英语词汇专家，请为以下单词提供中文、日文、英文的完整词汇信息，特别适合TOEIC学习者：
 
 单词：${word}
+${context ? `上下文：${context}` : ''}
 
 请以JSON格式返回，包含以下信息：
 {
   "word": "${word}",
-  "phonetic": "英式音标",
+  "phonetic": "英式音标 /ˈeksɑːmpl/",
   "meanings": [
     {
       "partOfSpeech": "英文词性（如noun、verb、adjective等）",
-      "partOfSpeechCN": "中文词性（如名词、动词、形容词等）", 
-      "partOfSpeechLocal": "中文词性",
-      "definitions": [
-        {
-          "definition": "详细的中文释义1",
-          "example": "英文例句1（最好与TOEIC/商务相关）"
-        },
-        {
-          "definition": "详细的中文释义2（如果有多个含义）",
-          "example": "英文例句2（最好与TOEIC/商务相关）"
-        }
-      ]
+      "definitions": {
+        "zh": [
+          {
+            "definition": "详细的中文释义1",
+            "example": "英文例句1（最好与TOEIC/商务相关）"
+          },
+          {
+            "definition": "详细的中文释义2（如果有多个含义）",
+            "example": "英文例句2（最好与TOEIC/商务相关）"
+          }
+        ],
+        "ja": [
+          {
+            "definition": "詳しい日本語の意味1",
+            "example": "英文例句1（TOEICやビジネスに関連したもの）"
+          },
+          {
+            "definition": "詳しい日本語の意味2（複数の意味がある場合）",
+            "example": "英文例句2（TOEICやビジネスに関連したもの）"
+          }
+        ],
+        "en": [
+          {
+            "definition": "Detailed English definition 1",
+            "example": "English example sentence 1 (preferably TOEIC/business related)"
+          },
+          {
+            "definition": "Detailed English definition 2 (if multiple meanings exist)",
+            "example": "English example sentence 2 (preferably TOEIC/business related)"
+          }
+        ]
+      },
+      "partOfSpeechLocal": {
+        "zh": "中文词性（如名词、动词、形容词等）",
+        "ja": "日本語の品詞（名詞、動詞、形容詞など）",
+        "en": "English part of speech (noun, verb, adjective, etc.)"
+      }
     }
-  ]
+  ],
+  "commonality": "常用性级别（common/uncommon/rare）",
+  "jlpt": ["N1", "N2", "N3", "N4", "N5"] // 如果适用，日语能力考试级别
 }
 
 要求：
-- 每个词性提供1-2个主要释义，每个释义配一个相应的例句
+- 每个词性在每种语言中提供1-2个主要释义，每个释义配一个相应的例句
 - 释义必须准确、通俗易懂
 - 例句要实用，最好与商务、职场、日常交流相关
 - 如果单词有多个词性，请提供主要的2-3个词性
 - 优先提供TOEIC考试中常见的词义和用法
+- 中文释义使用简体中文
+- 日文释义使用标准日语表达（包含汉字、平假名、片假名）
+- 英文释义使用清晰简洁的英语解释
+- 如果单词在日语中有对应的JLPT级别，请提供相关信息
 
 **重要：请直接返回JSON格式，不要使用Markdown代码块包装。**
       `;
