@@ -84,16 +84,14 @@ router.post(['/words', '/'],
           word: word.toLowerCase(),
           definition: wordDefinition?.phonetic ? `${word} ${wordDefinition.phonetic}` : `${word} 的基础定义`,
           phonetic: wordDefinition?.phonetic,
-          context: context || `${word} 出现的语境`,
-          sourceType: sourceType || 'practice',
-          sourceId: sourceId || '',
+          // context, sourceType, sourceId 在schema中不存在，移除
           language: language || 'en',
-          notes: '',
+          notes: context ? `语境: ${context}` : '', // 将context信息放入notes
           tags: tags || [],
           mastered: false,
           meanings: aiMeanings,
           commonality: wordDefinition?.commonality || null,
-          jlpt: wordDefinition?.jlpt || null,
+          jlpt: wordDefinition?.jlpt ? [wordDefinition.jlpt] : [],
           definitionLoading: false,
           definitionError: !wordDefinition, // 如果AI失败则标记为错误
           nextReviewDate: new Date()
@@ -161,9 +159,10 @@ router.get(['/words', '/'],
         definition: item.definition,
         phonetic: item.phonetic,
         audioUrl: item.audioUrl,
-        context: item.context,
-        sourceType: item.sourceType,
-        sourceId: item.sourceId,
+        // context, sourceType, sourceId 在schema中不存在，使用默认值
+        context: null,
+        sourceType: null,
+        sourceId: null,
         meanings: item.meanings, // 前端期望的复杂结构
         language: item.language,
         reading: item.reading,
