@@ -1605,6 +1605,62 @@ router.post('/emergency-add-columns', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/billing/check-database-columns
+ * 检查数据库列是否存在
+ */
+router.get('/check-database-columns', async (req: Request, res: Response) => {
+  try {
+    log.info('🔍 Checking database columns...');
+
+    const tablesToCheck = [
+      { table: 'users', columns: ['trialStartedAt', 'trialExpiresAt', 'hasUsedTrial', 'trialEmail', 'trialIpAddress'] },
+      { table: 'vocabulary_items', columns: ['phonetic'] }
+    ];
+
+    const results = {};
+
+    for (const tableInfo of tablesToCheck) {
+      const tableColumns = await prisma.$queryRawUnsafe(`
+        SELECT column_name, data_type, is_nullable, column_default
+        FROM information_schema.columns
+        WHERE table_name = '${tableInfo.table}'
+        ORDER BY ordinal_position
+      `);
+
+      results[tableInfo.table] = {
+        allColumns: tableColumns,
+        checkedColumns: {}
+      };
+
+      for (const columnName of tableInfo.columns) {
+        const columnExists = Array.isArray(tableColumns) &&
+          tableColumns.some((col: any) => col.column_name === columnName);
+
+        results[tableInfo.table].checkedColumns[columnName] = {
+          exists: columnExists,
+          details: columnExists ? tableColumns.find((col: any) => col.column_name === columnName) : null
+        };
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Database column check completed',
+      timestamp: new Date().toISOString(),
+      results
+    });
+
+  } catch (error: any) {
+    log.error('❌ Database column check failed', { error: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Database column check failed',
+      details: error.message
+    });
+  }
+});
+
+/**
  * POST /api/billing/add-trial-fields
  * 手动添加试用字段到users表（一次性修复）
  */
