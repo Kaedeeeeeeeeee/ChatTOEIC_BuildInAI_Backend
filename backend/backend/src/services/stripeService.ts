@@ -254,32 +254,10 @@ export class StripeService {
         log.warn('Failed to query subscription plan from database', { planId, dbError });
       }
 
-      // 如果数据库中没有找到，使用硬编码的试用套餐数据
+      // 如果数据库中没有找到套餐，抛出错误
       if (!plan) {
-        log.info('Using hardcoded plan data for trial', { planId });
-        
-        if (planId === 'trial' || planId === 'trial_plan') {
-          plan = {
-            id: 'trial',
-            name: 'Free Trial',
-            nameJp: '無料トライアル',
-            priceCents: 0,
-            currency: 'jpy',
-            interval: 'trial',
-            features: {
-              aiPractice: true,
-              aiChat: true,
-              vocabulary: true,
-              exportData: true,
-              viewMistakes: true
-            },
-            dailyPracticeLimit: null,
-            dailyAiChatLimit: 20,
-            maxVocabularyWords: null,
-            trialDays: 3,
-            isPopular: true
-          };
-        } else if (planId === 'free' || planId === 'free_plan') {
+        log.error('Plan not found in database', { planId });
+        throw new Error(`Plan not found: ${planId}`);
           plan = {
             id: 'free',
             name: 'Free Plan',
@@ -333,12 +311,12 @@ export class StripeService {
       const now = new Date();
       const trialEnd = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // 3天后
 
-      // 创建试用订阅记录
+      // 创建试用订阅记录 - 使用数据库中找到的套餐ID
       const subscription = await prisma.userSubscription.upsert({
         where: { userId },
         create: {
           userId,
-          planId,
+          planId: plan.id, // 使用数据库中实际存在的套餐ID
           status: 'trialing',
           trialStart: now,
           trialEnd,
@@ -346,7 +324,7 @@ export class StripeService {
           currentPeriodEnd: trialEnd,
         },
         update: {
-          planId,
+          planId: plan.id, // 使用数据库中实际存在的套餐ID
           status: 'trialing',
           trialStart: now,
           trialEnd,
