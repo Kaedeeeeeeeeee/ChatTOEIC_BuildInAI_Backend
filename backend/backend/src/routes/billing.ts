@@ -376,22 +376,75 @@ router.post('/emergency-migrate', async (req: Request, res: Response) => {
   try {
     log.info('🚀 Starting emergency database migration...');
 
-    // 🆘 紧急添加缺失的列
-    const missingColumns = [
-      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "trialStartedAt" TIMESTAMP(3);',
-      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "trialExpiresAt" TIMESTAMP(3);',
-      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "hasUsedTrial" BOOLEAN NOT NULL DEFAULT false;',
-      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "trialEmail" TEXT;',
-      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "trialIpAddress" TEXT;',
-      'ALTER TABLE "vocabulary_items" ADD COLUMN IF NOT EXISTS "phonetic" TEXT;'
+    // 🆘 紧急添加缺失的列 - 使用单独的ALTER语句
+    const columnChecksAndAdds = [
+      {
+        table: 'users',
+        column: 'trialStartedAt',
+        type: 'TIMESTAMP(3)',
+        nullable: true
+      },
+      {
+        table: 'users',
+        column: 'trialExpiresAt',
+        type: 'TIMESTAMP(3)',
+        nullable: true
+      },
+      {
+        table: 'users',
+        column: 'hasUsedTrial',
+        type: 'BOOLEAN',
+        nullable: false,
+        defaultValue: 'false'
+      },
+      {
+        table: 'users',
+        column: 'trialEmail',
+        type: 'TEXT',
+        nullable: true
+      },
+      {
+        table: 'users',
+        column: 'trialIpAddress',
+        type: 'TEXT',
+        nullable: true
+      },
+      {
+        table: 'vocabulary_items',
+        column: 'phonetic',
+        type: 'TEXT',
+        nullable: true
+      }
     ];
 
-    for (const sql of missingColumns) {
+    for (const col of columnChecksAndAdds) {
       try {
-        await prisma.$executeRawUnsafe(sql);
-        log.info(`✅ Added column: ${sql}`);
+        // 检查列是否存在
+        const checkResult = await prisma.$queryRawUnsafe(`
+          SELECT column_name
+          FROM information_schema.columns
+          WHERE table_name = '${col.table}' AND column_name = '${col.column}'
+        `);
+
+        if (Array.isArray(checkResult) && checkResult.length === 0) {
+          // 列不存在，添加它
+          let alterSQL = `ALTER TABLE "${col.table}" ADD COLUMN "${col.column}" ${col.type}`;
+
+          if (!col.nullable) {
+            alterSQL += ' NOT NULL';
+          }
+
+          if (col.defaultValue) {
+            alterSQL += ` DEFAULT ${col.defaultValue}`;
+          }
+
+          await prisma.$executeRawUnsafe(alterSQL);
+          log.info(`✅ Added missing column: ${col.table}.${col.column}`);
+        } else {
+          log.info(`✅ Column already exists: ${col.table}.${col.column}`);
+        }
       } catch (error: any) {
-        log.warn(`⚠️ Column addition failed (may already exist): ${sql}`, { error: error.message });
+        log.error(`❌ Failed to handle column ${col.table}.${col.column}`, { error: error.message });
       }
     }
 
