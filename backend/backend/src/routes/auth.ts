@@ -21,6 +21,55 @@ router.get('/test', (req: Request, res: Response) => {
   });
 });
 
+// OAuth调试端点
+router.get('/oauth-debug', (req: Request, res: Response) => {
+  try {
+    const backendUrl = process.env.BACKEND_URL || process.env.RAILWAY_STATIC_URL || 'https://steadfast-renewal-staging.up.railway.app';
+    const redirectUri = `${backendUrl}/api/auth/google/callback`;
+
+    const googleClient = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      redirectUri
+    );
+
+    const scopes = [
+      'https://www.googleapis.com/auth/userinfo.profile',
+      'https://www.googleapis.com/auth/userinfo.email'
+    ];
+
+    const authUrl = googleClient.generateAuthUrl({
+      access_type: 'offline',
+      scope: scopes,
+      state: 'security_token',
+      redirect_uri: redirectUri
+    });
+
+    res.json({
+      success: true,
+      debug_info: {
+        backend_url: backendUrl,
+        redirect_uri: redirectUri,
+        google_client_id: process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.substring(0, 10)}...` : 'NOT_SET',
+        google_client_secret: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT_SET',
+        environment_vars: {
+          BACKEND_URL: process.env.BACKEND_URL || 'NOT_SET',
+          RAILWAY_STATIC_URL: process.env.RAILWAY_STATIC_URL || 'NOT_SET',
+          NODE_ENV: process.env.NODE_ENV || 'NOT_SET'
+        },
+        generated_auth_url: authUrl,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'OAuth调试失败',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 // 重置管理员密码端点 (临时使用)
 router.post('/debug/reset-admin-password', async (req: Request, res: Response) => {
   try {
