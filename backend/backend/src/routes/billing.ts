@@ -259,6 +259,56 @@ router.post('/setup-database', async (req: Request, res: Response) => {
       log.warn('Column fix error (might be normal if columns already exist)', { columnError: columnError.message });
     }
 
+    // 🆕 添加试用字段到users表
+    try {
+      log.info('🆕 Adding trial fields to users table...');
+
+      const trialFields = [
+        { name: 'trialStartedAt', type: 'TIMESTAMP(3)' },
+        { name: 'trialExpiresAt', type: 'TIMESTAMP(3)' },
+        { name: 'hasUsedTrial', type: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'trialEmail', type: 'TEXT' },
+        { name: 'trialIpAddress', type: 'TEXT' }
+      ];
+
+      for (const field of trialFields) {
+        try {
+          await prisma.$executeRaw`
+            ALTER TABLE public.users
+            ADD COLUMN IF NOT EXISTS ${Prisma.raw(`"${field.name}"`)} ${Prisma.raw(field.type)};
+          `;
+          log.info(`✅ Trial field ${field.name} added or already exists`);
+        } catch (fieldError: any) {
+          if (fieldError.message.includes('already exists') || fieldError.message.includes('duplicate')) {
+            log.info(`✅ Trial field ${field.name} already exists`);
+          } else {
+            log.warn(`⚠️ Failed to add trial field ${field.name}`, { error: fieldError.message });
+          }
+        }
+      }
+
+      // 添加试用相关的索引
+      const trialIndexes = [
+        'CREATE INDEX IF NOT EXISTS "users_trialExpiresAt_idx" ON "users"("trialExpiresAt");',
+        'CREATE INDEX IF NOT EXISTS "users_hasUsedTrial_idx" ON "users"("hasUsedTrial");',
+        'CREATE INDEX IF NOT EXISTS "users_trialEmail_idx" ON "users"("trialEmail");',
+        'CREATE INDEX IF NOT EXISTS "users_trialIpAddress_idx" ON "users"("trialIpAddress");'
+      ];
+
+      for (const indexSQL of trialIndexes) {
+        try {
+          await prisma.$executeRawUnsafe(indexSQL);
+          log.info('✅ Trial index created or already exists');
+        } catch (indexError: any) {
+          log.warn('⚠️ Failed to create trial index', { error: indexError.message });
+        }
+      }
+
+      log.info('✅ Trial fields addition completed');
+    } catch (trialError) {
+      log.error('❌ Failed to add trial fields', { trialError: trialError.message });
+    }
+
     // 清除现有数据并创建新数据
     try {
       await prisma.subscriptionPlan.deleteMany({});
