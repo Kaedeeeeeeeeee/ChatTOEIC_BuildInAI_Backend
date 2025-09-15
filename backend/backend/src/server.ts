@@ -42,6 +42,7 @@ import adminRoutes from './routes/admin.js'; // 启用管理员功能
 import databaseFixRoutes from './routes/database-fix.js'; // 数据库修复路由
 import notificationRoutes from './routes/notifications.js'; // 通知邮件路由
 import setupRoutes from './routes/setup.js'; // 数据库设置路由
+import debugRoutes from './routes/debug.js'; // 调试路由
 // import migrateRoutes from './routes/migrate.js'; // 迁移完成，临时注释掉
 
 // 导入中间件
@@ -190,6 +191,7 @@ app.use('/api/admin', adminRoutes); // 启用管理员功能
 app.use('/api/database-fix', databaseFixRoutes); // 数据库修复端点
 app.use('/api/notifications', notificationRoutes); // 通知邮件路由
 app.use('/api/setup', setupRoutes); // 数据库设置路由
+app.use('/api/debug', debugRoutes); // 调试路由
 
 // 带有分析追踪的业务路由
 app.use('/api/auth', trackAuthActivity, authRoutes);
