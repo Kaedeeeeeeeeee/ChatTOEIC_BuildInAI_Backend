@@ -1,8 +1,7 @@
 /**
- * 邮件发送服务 - 支持Resend和Gmail SMTP
+ * 邮件发送服务 - 使用Gmail SMTP
  */
 
-import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import nodemailer from 'nodemailer';
 import React from 'react';
@@ -31,25 +30,13 @@ interface EmailStats {
 }
 
 export class EmailService {
-  private resend?: Resend;
-  private transporter?: nodemailer.Transporter;
+  private transporter: nodemailer.Transporter;
   private defaultFrom: string;
   private stats: EmailStats;
-  private useGmailSMTP: boolean;
 
   constructor() {
-    // 检查是否使用 Gmail SMTP
-    const smtpHost = process.env.SMTP_HOST;
-    this.useGmailSMTP = !!smtpHost;
-
-    if (this.useGmailSMTP) {
-      // 使用 Gmail SMTP 配置
-      this.initializeGmailSMTP();
-    } else {
-      // 使用 Resend 配置
-      this.initializeResend();
-    }
-
+    // 初始化 Gmail SMTP 配置
+    this.initializeGmailSMTP();
     this.defaultFrom = process.env.EMAIL_FROM || 'ChatTOEIC <noreply@chattoeic.com>';
     this.stats = {
       sent: 0,
@@ -81,16 +68,6 @@ export class EmailService {
     console.log('📧 Email service initialized with Gmail SMTP');
   }
 
-  private initializeResend() {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      console.warn('⚠️ RESEND_API_KEY not provided. Email service disabled.');
-      return;
-    }
-
-    this.resend = new Resend(apiKey);
-    console.log('📧 Email service initialized with Resend');
-  }
 
   /**
    * 发送邮件
@@ -102,15 +79,8 @@ export class EmailService {
       // 渲染React邮件模板为HTML
       const html = await render(config.template);
 
-      if (this.useGmailSMTP && this.transporter) {
-        // 使用 Gmail SMTP 发送邮件
-        return await this.sendEmailViaGmail(config, html);
-      } else if (this.resend) {
-        // 使用 Resend 发送邮件
-        return await this.sendEmailViaResend(config, html);
-      } else {
-        throw new Error('No email service configured');
-      }
+      // 使用 Gmail SMTP 发送邮件
+      return await this.sendEmailViaGmail(config, html);
 
     } catch (error: any) {
       this.stats.pending--;
@@ -154,29 +124,6 @@ export class EmailService {
     };
   }
 
-  private async sendEmailViaResend(config: EmailConfig, html: string): Promise<EmailResult> {
-    const response = await this.resend!.emails.send({
-      from: config.from || this.defaultFrom,
-      to: Array.isArray(config.to) ? config.to : [config.to],
-      subject: config.subject,
-      html,
-      replyTo: config.replyTo
-    });
-
-    this.stats.pending--;
-    this.stats.sent++;
-
-    console.log('📧 Email sent successfully via Resend:', {
-      id: response.data?.id,
-      to: config.to,
-      subject: config.subject
-    });
-
-    return {
-      id: response.data?.id || 'resend',
-      success: true
-    };
-  }
 
   /**
    * 批量发送邮件

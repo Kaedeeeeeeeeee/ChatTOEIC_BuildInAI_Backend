@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "npx prisma generate --schema=prisma/schema.prisma && npx esbuild src/server.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/server.js --external:@prisma/client --external:bcryptjs --external:compression --external:cors --external:express --external:express-rate-limit --external:express-slow-down --external:helmet --external:joi --external:jsonwebtoken --external:morgan --external:uuid --external:dotenv --external:@google/generative-ai --external:google-auth-library --external:response-time --external:winston --external:util --external:qs --external:object-inspect --external:side-channel --external:stripe --external:@types/stripe --external:resend --external:@react-email/components --external:@react-email/render --external:react --external:zod --external:nodemailer",
+    "build": "npx prisma generate --schema=prisma/schema.prisma && npx esbuild src/server.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/server.js --external:@prisma/client --external:bcryptjs --external:compression --external:cors --external:express --external:express-rate-limit --external:express-slow-down --external:helmet --external:joi --external:jsonwebtoken --external:morgan --external:uuid --external:dotenv --external:@google/generative-ai --external:google-auth-library --external:response-time --external:winston --external:util --external:qs --external:object-inspect --external:side-channel --external:stripe --external:@types/stripe --external:@react-email/components --external:@react-email/render --external:react --external:zod --external:nodemailer",
     "build:render": "./render-build.sh",
     "build:railway": "npx prisma generate --schema=prisma/schema.prisma && npm run build",
     "start": "./start.sh",
@@ -59,7 +59,6 @@
     "nodemailer": "^7.0.6",
     "pg": "^8.16.3",
     "react": "^19.1.1",
-    "resend": "^6.0.1",
     "response-time": "^2.3.2",
     "stripe": "^18.4.0",
     "uuid": "^10.0.0",
