@@ -16,8 +16,9 @@ const router = Router();
 router.get('/test', (req: Request, res: Response) => {
   res.json({
     success: true,
-    message: 'Auth route is working',
-    timestamp: new Date().toISOString()
+    message: 'Auth route is working - RAILWAY DEPLOYMENT TEST v2.0.2',
+    timestamp: new Date().toISOString(),
+    deployment_check: 'RAILWAY-OAUTH-FIX-ACTIVE'
   });
 });
 

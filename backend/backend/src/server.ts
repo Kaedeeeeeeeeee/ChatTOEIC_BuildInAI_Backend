@@ -4,6 +4,23 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import dotenv from 'dotenv';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+// 获取当前文件的目录路径
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// 动态读取 package.json 中的版本号
+let APP_VERSION = '2.0.2-oauth-fix'; // 默认版本
+try {
+  const packageJsonPath = join(__dirname, '../../package.json');
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+  APP_VERSION = packageJson.version;
+} catch (error) {
+  console.warn('无法读取 package.json 版本，使用默认版本:', APP_VERSION);
+}
 
 // 导入路由
 import healthRoutes from './routes/health.js';
@@ -701,13 +718,13 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 const server = app.listen(PORT, '0.0.0.0', async () => {
   // 使用结构化日志记录启动信息
   log.info('ChatTOEIC API Server Started', {
-    version: process.env.npm_package_version || '2.0.2-oauth-fix',
+    version: APP_VERSION,
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString()
   });
 
-  console.log(`🚀 ChatTOEIC API v2.0.2-oauth-fix 服务器启动成功 [OAUTH-FIX-DEPLOYED]`);
+  console.log(`🚀 ChatTOEIC API v${APP_VERSION} 服务器启动成功 [OAUTH-FIX-DEPLOYED]`);
   console.log(`📡 服务地址: http://localhost:${PORT}`);
   console.log(`🌍 环境: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🏥 健康检查: http://localhost:${PORT}/api/health`);
