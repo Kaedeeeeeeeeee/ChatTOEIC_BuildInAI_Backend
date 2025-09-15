@@ -3,7 +3,7 @@
 // Emergency database fix script for Railway deployment
 // Fixes failed migration by marking it as completed and applying missing schema changes
 
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
 
 async function fixMigration() {
   const prisma = new PrismaClient();
@@ -80,16 +80,15 @@ async function fixMigration() {
   }
 }
 
-if (require.main === module) {
-  fixMigration()
-    .then(() => {
-      console.log('✅ Migration fix script completed');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('❌ Migration fix script failed:', error);
-      process.exit(1);
-    });
-}
+// Run the fix migration when script is executed directly
+fixMigration()
+  .then(() => {
+    console.log('✅ Migration fix script completed');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('❌ Migration fix script failed:', error);
+    process.exit(1);
+  });
 
-module.exports = { fixMigration };
+export { fixMigration };
