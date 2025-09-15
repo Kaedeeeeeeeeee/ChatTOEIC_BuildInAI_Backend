@@ -830,13 +830,14 @@ router.get('/google/callback', oauthRateLimit, async (req: Request, res: Respons
       isNewUser: !user.googleId
     });
 
-    // 重定向到前端主页，并携带令牌信息
+    // 重定向到前端OAuth回调页面，并携带令牌信息
     console.log('=== OAuth回调调试信息 ===');
     console.log('Environment FRONTEND_URL:', process.env.FRONTEND_URL);
     console.log('Using frontend URL:', frontendUrl);
     console.log('所有环境变量:', Object.keys(process.env).filter(key => key.includes('FRONTEND')));
-    
-    const redirectUrl = `${frontendUrl}/?token=${encodeURIComponent(accessToken)}&refresh=${encodeURIComponent(refreshToken)}&oauth_success=true`;
+
+    const redirectUrl = `${frontendUrl}/auth/callback?access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}&user_id=${encodeURIComponent(user.id)}`;
+    console.log('🔗 重定向到:', redirectUrl);
     res.redirect(redirectUrl);
 
   } catch (error: any) {
