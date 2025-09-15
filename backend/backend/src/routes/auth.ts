@@ -571,11 +571,20 @@ router.get('/google', oauthRateLimit, (req: Request, res: Response) => {
       'https://www.googleapis.com/auth/userinfo.email'
     ];
 
+    // 动态获取后端URL，优先使用环境变量
+    const backendUrl = process.env.BACKEND_URL || process.env.RAILWAY_STATIC_URL || 'https://steadfast-renewal-staging.up.railway.app';
+    const redirectUri = `${backendUrl}/api/auth/google/callback`;
+
+    console.log('🔧 OAuth配置信息:');
+    console.log('- BACKEND_URL:', process.env.BACKEND_URL);
+    console.log('- RAILWAY_STATIC_URL:', process.env.RAILWAY_STATIC_URL);
+    console.log('- 最终redirect_uri:', redirectUri);
+
     const authUrl = googleClient.generateAuthUrl({
       access_type: 'offline',
       scope: scopes,
       state: 'security_token',
-      redirect_uri: `https://steadfast-renewal-staging.up.railway.app/api/auth/google/callback`
+      redirect_uri: redirectUri
     });
 
     res.redirect(authUrl);
@@ -608,12 +617,16 @@ router.get('/google/callback', oauthRateLimit, async (req: Request, res: Respons
 
     // 使用授权码获取令牌
     console.log('准备交换授权码获取token...');
-    console.log('使用的redirect_uri:', 'https://steadfast-renewal-staging.up.railway.app/api/auth/google/callback');
+    // 使用相同的动态URL配置
+    const backendUrl = process.env.BACKEND_URL || process.env.RAILWAY_STATIC_URL || 'https://steadfast-renewal-staging.up.railway.app';
+    const redirectUri = `${backendUrl}/api/auth/google/callback`;
+
+    console.log('使用的redirect_uri:', redirectUri);
     console.log('GOOGLE_CLIENT_SECRET存在:', !!process.env.GOOGLE_CLIENT_SECRET);
 
     const { tokens: googleTokens } = await googleClient.getToken({
       code: code as string,
-      redirect_uri: `https://steadfast-renewal-staging.up.railway.app/api/auth/google/callback`
+      redirect_uri: redirectUri
     });
     
     console.log('成功获取Google tokens');
