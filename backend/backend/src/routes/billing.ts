@@ -1404,4 +1404,127 @@ router.post('/migrate-database-schema', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/billing/add-trial-fields
+ * 手动添加试用字段到users表（一次性修复）
+ */
+router.post('/add-trial-fields', async (req: Request, res: Response) => {
+  try {
+    log.info('🔧 Manually adding trial fields to users table');
+
+    // 手动添加试用字段到users表
+    const trialFields = [
+      'trialStartedAt',
+      'trialExpiresAt',
+      'hasUsedTrial',
+      'trialEmail',
+      'trialIpAddress'
+    ];
+
+    const results = [];
+
+    for (const fieldName of trialFields) {
+      try {
+        if (fieldName === 'hasUsedTrial') {
+          // Boolean field with default
+          await prisma.$executeRaw`
+            ALTER TABLE public.users
+            ADD COLUMN IF NOT EXISTS ${Prisma.raw(`"${fieldName}"`)} BOOLEAN NOT NULL DEFAULT false;
+          `;
+        } else if (fieldName.includes('At')) {
+          // Timestamp fields
+          await prisma.$executeRaw`
+            ALTER TABLE public.users
+            ADD COLUMN IF NOT EXISTS ${Prisma.raw(`"${fieldName}"`)} TIMESTAMP(3);
+          `;
+        } else {
+          // Text fields
+          await prisma.$executeRaw`
+            ALTER TABLE public.users
+            ADD COLUMN IF NOT EXISTS ${Prisma.raw(`"${fieldName}"`)} TEXT;
+          `;
+        }
+
+        results.push({ field: fieldName, status: 'added_or_exists' });
+        log.info(`✅ Trial field ${fieldName} added or already exists`);
+      } catch (fieldError: any) {
+        if (fieldError.message.includes('already exists') || fieldError.message.includes('duplicate')) {
+          results.push({ field: fieldName, status: 'already_exists' });
+          log.info(`✅ Trial field ${fieldName} already exists`);
+        } else {
+          results.push({ field: fieldName, status: 'failed', error: fieldError.message });
+          log.error(`❌ Failed to add trial field ${fieldName}`, { error: fieldError.message });
+        }
+      }
+    }
+
+    // 添加索引
+    const indexes = [
+      'users_trialExpiresAt_idx',
+      'users_hasUsedTrial_idx',
+      'users_trialEmail_idx',
+      'users_trialIpAddress_idx'
+    ];
+
+    for (const indexName of indexes) {
+      try {
+        if (indexName === 'users_trialExpiresAt_idx') {
+          await prisma.$executeRaw`
+            CREATE INDEX IF NOT EXISTS "users_trialExpiresAt_idx" ON "users"("trialExpiresAt");
+          `;
+        } else if (indexName === 'users_hasUsedTrial_idx') {
+          await prisma.$executeRaw`
+            CREATE INDEX IF NOT EXISTS "users_hasUsedTrial_idx" ON "users"("hasUsedTrial");
+          `;
+        } else if (indexName === 'users_trialEmail_idx') {
+          await prisma.$executeRaw`
+            CREATE INDEX IF NOT EXISTS "users_trialEmail_idx" ON "users"("trialEmail");
+          `;
+        } else if (indexName === 'users_trialIpAddress_idx') {
+          await prisma.$executeRaw`
+            CREATE INDEX IF NOT EXISTS "users_trialIpAddress_idx" ON "users"("trialIpAddress");
+          `;
+        }
+
+        results.push({ index: indexName, status: 'created_or_exists' });
+        log.info(`✅ Index ${indexName} created or already exists`);
+      } catch (indexError: any) {
+        results.push({ index: indexName, status: 'failed', error: indexError.message });
+        log.warn(`⚠️ Failed to create index ${indexName}`, { error: indexError.message });
+      }
+    }
+
+    log.info('✅ Trial fields addition completed successfully');
+
+    res.json({
+      success: true,
+      message: 'Trial fields added to users table successfully',
+      details: {
+        timestamp: new Date().toISOString(),
+        results,
+        next_steps: [
+          'Trial fields are now available in users table',
+          'TrialService can now function properly',
+          'Users can start free trials'
+        ]
+      }
+    });
+
+  } catch (error: any) {
+    log.error('❌ Failed to add trial fields', {
+      error: error.message,
+      stack: error.stack
+    });
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to add trial fields to users table',
+      details: {
+        message: error.message,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 export default router;
