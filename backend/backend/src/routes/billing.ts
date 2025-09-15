@@ -1455,6 +1455,84 @@ router.post('/migrate-database-schema', async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/billing/emergency-add-columns
+ * 紧急添加缺失的数据库列（试用字段和词汇字段）
+ */
+router.post('/emergency-add-columns', async (req: Request, res: Response) => {
+  try {
+    log.info('🆘 Emergency: Adding missing database columns');
+
+    const results = [];
+
+    // 直接执行SQL添加试用字段
+    const trialSQLs = [
+      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "trialStartedAt" TIMESTAMP(3);',
+      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "trialExpiresAt" TIMESTAMP(3);',
+      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "hasUsedTrial" BOOLEAN NOT NULL DEFAULT false;',
+      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "trialEmail" TEXT;',
+      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "trialIpAddress" TEXT;'
+    ];
+
+    for (const sql of trialSQLs) {
+      try {
+        await prisma.$executeRawUnsafe(sql);
+        results.push({ sql, status: 'success' });
+        log.info(`✅ Executed: ${sql}`);
+      } catch (error: any) {
+        results.push({ sql, status: 'failed', error: error.message });
+        log.error(`❌ Failed: ${sql}`, { error: error.message });
+      }
+    }
+
+    // 添加词汇表缺失的 phonetic 字段
+    try {
+      await prisma.$executeRawUnsafe('ALTER TABLE "vocabulary_items" ADD COLUMN IF NOT EXISTS "phonetic" TEXT;');
+      results.push({ sql: 'vocabulary_items.phonetic', status: 'success' });
+      log.info('✅ Added phonetic column to vocabulary_items');
+    } catch (error: any) {
+      results.push({ sql: 'vocabulary_items.phonetic', status: 'failed', error: error.message });
+      log.error('❌ Failed to add phonetic column', { error: error.message });
+    }
+
+    // 添加索引
+    const indexSQLs = [
+      'CREATE INDEX IF NOT EXISTS "users_trialExpiresAt_idx" ON "users"("trialExpiresAt");',
+      'CREATE INDEX IF NOT EXISTS "users_hasUsedTrial_idx" ON "users"("hasUsedTrial");',
+      'CREATE INDEX IF NOT EXISTS "users_trialEmail_idx" ON "users"("trialEmail");',
+      'CREATE INDEX IF NOT EXISTS "users_trialIpAddress_idx" ON "users"("trialIpAddress");'
+    ];
+
+    for (const sql of indexSQLs) {
+      try {
+        await prisma.$executeRawUnsafe(sql);
+        results.push({ sql, status: 'success' });
+        log.info(`✅ Created index: ${sql}`);
+      } catch (error: any) {
+        results.push({ sql, status: 'failed', error: error.message });
+        log.warn(`⚠️ Index creation failed: ${sql}`, { error: error.message });
+      }
+    }
+
+    log.info('✅ Emergency column addition completed');
+
+    res.json({
+      success: true,
+      message: 'Emergency database columns added successfully',
+      timestamp: new Date().toISOString(),
+      results
+    });
+
+  } catch (error: any) {
+    log.error('❌ Emergency column addition failed', { error: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Emergency column addition failed',
+      details: error.message
+    });
+  }
+});
+
+/**
  * POST /api/billing/add-trial-fields
  * 手动添加试用字段到users表（一次性修复）
  */
