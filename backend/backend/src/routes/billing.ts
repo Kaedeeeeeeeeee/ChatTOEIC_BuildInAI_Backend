@@ -716,15 +716,8 @@ router.post('/user/subscription/start-trial', authenticateToken, async (req: Aut
     const userId = req.user!.userId;
     const { planId } = req.body;
 
-    if (!planId) {
-      return res.status(400).json({
-        success: false,
-        error: '套餐ID不能为空',
-      });
-    }
-
-    // 默认使用试用套餐
-    const trialPlanId = planId || 'trial';
+    // 默认使用premium_monthly套餐进行试用
+    const trialPlanId = planId || 'premium_monthly';
     
     const subscription = await StripeService.startTrial(userId, trialPlanId);
 

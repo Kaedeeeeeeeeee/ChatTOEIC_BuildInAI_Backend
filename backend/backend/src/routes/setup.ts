@@ -118,6 +118,55 @@ router.post('/database', async (req, res) => {
   }
 });
 
+// 更新Stripe产品和价格ID
+router.post('/stripe-ids', async (req, res) => {
+  try {
+    const { plans } = req.body;
+
+    if (!plans || !Array.isArray(plans)) {
+      return res.status(400).json({
+        success: false,
+        message: '请提供有效的套餐配置',
+        format: 'Expected: { plans: [{ id: "plan_id", stripePriceId: "price_xxx", stripeProductId: "prod_xxx" }, ...] }'
+      });
+    }
+
+    const updatedPlans = [];
+    for (const planUpdate of plans) {
+      const { id, stripePriceId, stripeProductId } = planUpdate;
+
+      if (!id || !stripePriceId) {
+        continue; // 跳过无效的配置
+      }
+
+      const updated = await prisma.subscriptionPlan.update({
+        where: { id },
+        data: {
+          stripePriceId,
+          stripeProductId: stripeProductId || undefined
+        }
+      });
+
+      updatedPlans.push(updated);
+      console.log(`✅ 更新套餐 ${id}: stripePriceId=${stripePriceId}`);
+    }
+
+    res.json({
+      success: true,
+      message: `成功更新${updatedPlans.length}个套餐的Stripe配置`,
+      data: { updatedPlans }
+    });
+
+  } catch (error) {
+    console.error('❌ 更新Stripe配置失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '更新Stripe配置失败',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 // 检查数据库状态
 router.get('/database/status', async (req, res) => {
   try {
