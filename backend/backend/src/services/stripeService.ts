@@ -258,27 +258,6 @@ export class StripeService {
       if (!plan) {
         log.error('Plan not found in database', { planId });
         throw new Error(`Plan not found: ${planId}`);
-          plan = {
-            id: 'free',
-            name: 'Free Plan',
-            nameJp: '無料プラン',
-            priceCents: 0,
-            currency: 'jpy',
-            interval: 'month',
-            features: {
-              aiPractice: false,
-              aiChat: false,
-              vocabulary: true,
-              exportData: false,
-              viewMistakes: true
-            },
-            dailyPracticeLimit: null,
-            dailyAiChatLimit: 0,
-            maxVocabularyWords: null
-          };
-        } else {
-          throw new Error('Plan not found');
-        }
       }
 
       // 检查是否已有活跃订阅
