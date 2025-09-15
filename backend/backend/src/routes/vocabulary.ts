@@ -578,9 +578,9 @@ router.put('/:wordId',
         definition: updatedItem.definition,
         phonetic: updatedItem.phonetic,
         audioUrl: updatedItem.audioUrl,
-        context: updatedItem.context,
-        sourceType: updatedItem.sourceType,
-        sourceId: updatedItem.sourceId,
+        context: null, // 字段不存在，使用默认值
+        sourceType: null, // 字段不存在，使用默认值
+        sourceId: null, // 字段不存在，使用默认值
         meanings: updatedItem.meanings,
         language: updatedItem.language,
         reading: updatedItem.reading,
@@ -636,7 +636,7 @@ router.post('/:wordId/refresh-definition',
       console.log(`🔄 Refreshing definition for word: ${vocabularyItem.word}`);
 
       try {
-        const wordDefinition = await geminiService.getWordDefinition(vocabularyItem.word, vocabularyItem.context);
+        const wordDefinition = await geminiService.getWordDefinition(vocabularyItem.word, '');
         
         const updatedItem = await prisma.vocabularyItem.update({
           where: { id: wordId },
