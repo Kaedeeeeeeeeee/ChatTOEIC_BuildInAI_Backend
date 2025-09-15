@@ -5,7 +5,7 @@ cmds = [
 ]
 
 [phases.start]
-cmd = "npx prisma migrate reset --force --schema=prisma/schema.prisma && npx tsx prisma/seed.ts && node dist/server.js"
+cmd = "npx prisma migrate deploy --schema=prisma/schema.prisma && npx tsx prisma/seed.ts && node dist/server.js"
 
 [variables]
 NODE_ENV = "production"
