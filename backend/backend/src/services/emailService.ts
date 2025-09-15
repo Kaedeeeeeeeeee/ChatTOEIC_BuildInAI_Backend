@@ -68,7 +68,7 @@ export class EmailService {
       throw new Error('Gmail SMTP configuration incomplete. Required: SMTP_HOST, SMTP_USER, SMTP_PASS');
     }
 
-    this.transporter = nodemailer.createTransporter({
+    this.transporter = nodemailer.createTransport({
       host: smtpHost,
       port: smtpPort,
       secure: smtpPort === 465, // true for 465, false for other ports
