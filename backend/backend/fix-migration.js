@@ -34,6 +34,16 @@ async function fixMigration() {
       AND finished_at IS NULL
     `);
 
+    // Mark vocabulary complete fields migration as resolved
+    await prisma.$executeRawUnsafe(`
+      UPDATE "_prisma_migrations"
+      SET finished_at = NOW(),
+          applied_steps_count = 1,
+          logs = 'Fixed manually - column already exists'
+      WHERE migration_name = '20250915140000_add_vocabulary_complete_fields'
+      AND finished_at IS NULL
+    `);
+
     // Apply all missing columns with IF NOT EXISTS checks
     console.log('✅ Applying missing vocabulary table columns...');
 
