@@ -42,5 +42,16 @@ if [ ! -f "dist/server.js" ]; then
     npm run build
 fi
 
+# Deploy database migrations before starting server
+echo "📊 Deploying database migrations..."
+npx prisma migrate deploy --schema=prisma/schema.prisma
+
+if [ $? -ne 0 ]; then
+    echo "❌ Database migration failed"
+    exit 1
+fi
+
+echo "✅ Database migrations completed"
+
 echo "🎯 Starting ChatTOEIC Backend Server..."
 node dist/server.js
