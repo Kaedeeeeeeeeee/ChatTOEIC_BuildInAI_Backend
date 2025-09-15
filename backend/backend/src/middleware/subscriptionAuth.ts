@@ -1,11 +1,13 @@
 /**
  * 订阅权限中间件
  * 检查用户是否有权限使用特定功能
+ * 支持独立的试用系统和付费订阅系统
  */
 
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/database.js';
 import { log } from '../utils/logger.js';
+import { TrialService } from '../services/trialService.js';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -36,18 +38,23 @@ const safeUserSubscriptionSelect = {
 };
 
 /**
- * 获取用户订阅状态和权限信息
+ * 获取用户订阅状态和权限信息（使用新的独立试用系统）
  */
 export async function getUserSubscriptionInfo(userId: string) {
   try {
-    // 查询用户基本信息（仅查询存在的字段）
+    // 查询用户基本信息，包括新的试用字段
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
         email: true,
-        name: true, // 使用name而不是username字段
-        // 暂时不查询trialUsed和trialStartedAt字段，直到数据库同步
+        name: true,
+        // 新的试用系统字段
+        trialStartedAt: true,
+        trialExpiresAt: true,
+        hasUsedTrial: true,
+        trialEmail: true,
+        trialIpAddress: true,
       },
     });
 
@@ -55,25 +62,63 @@ export async function getUserSubscriptionInfo(userId: string) {
       return { hasPermission: false, reason: 'USER_NOT_FOUND' };
     }
 
-    // 查询用户订阅信息（使用安全选择器）
+    // 首先检查是否在试用期内（新的独立试用系统）
+    const isInTrial = TrialService.isInTrial(user);
+
+    if (isInTrial) {
+      log.info('User is in trial period', { userId, trialExpiresAt: user.trialExpiresAt });
+
+      // 返回试用权限
+      const trialPermissions = TrialService.getTrialPermissions();
+      return {
+        hasPermission: true,
+        subscription: null,
+        trial: {
+          isActive: true,
+          startedAt: user.trialStartedAt,
+          expiresAt: user.trialExpiresAt,
+          daysRemaining: user.trialExpiresAt
+            ? Math.ceil((user.trialExpiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+            : 0
+        },
+        permissions: {
+          aiPractice: trialPermissions.aiPractice,
+          aiChat: trialPermissions.aiChat,
+          vocabulary: trialPermissions.vocabulary,
+          exportData: trialPermissions.exportData,
+          viewMistakes: trialPermissions.viewMistakes,
+        },
+        trialAvailable: false, // 已经在使用试用
+      };
+    }
+
+    // 检查是否可以开始试用
+    const canStartTrial = !user.hasUsedTrial;
+
+    // 查询用户订阅信息
     const subscription = await prisma.userSubscription.findUnique({
       where: { userId },
       select: safeUserSubscriptionSelect,
     });
-    
-    // 如果没有订阅，返回免费版权限（新的权限体系）
+
+    // 如果没有订阅且不在试用期，返回免费版权限
     if (!subscription) {
       return {
         hasPermission: false,
         subscription: null,
+        trial: {
+          isActive: false,
+          hasUsed: user.hasUsedTrial,
+          canStart: canStartTrial
+        },
         permissions: {
           aiPractice: false,        // ❌ 无AI练习生成
           aiChat: false,            // ❌ 无AI对话
-          vocabulary: true,         // ✅ 生词本功能  
+          vocabulary: true,         // ✅ 生词本功能
           exportData: false,        // ❌ 不能导出
           viewMistakes: true,       // ✅ 无限复习功能
         },
-        trialAvailable: true, // 暂时默认为可用，直到数据库字段同步
+        trialAvailable: canStartTrial,
       };
     }
 
@@ -98,28 +143,8 @@ export async function getUserSubscriptionInfo(userId: string) {
     let planData = plan;
     if (!plan) {
       log.warn('Subscription plan not found in database, using hardcoded data', { planId: subscription.planId, userId });
-      
-      // 提供硬编码的套餐数据，与StripeService中的一致
-      if (subscription.planId === 'trial' || subscription.planId === 'trial_plan') {
-        planData = {
-          id: 'trial',
-          name: 'Free Trial',
-          nameJp: '無料トライアル',
-          priceCents: 0,
-          currency: 'jpy',
-          interval: 'trial',
-          features: {
-            aiPractice: true,
-            aiChat: true,
-            vocabulary: true,
-            exportData: true,
-            viewMistakes: true
-          },
-          dailyPracticeLimit: null,
-          dailyAiChatLimit: 20,
-          maxVocabularyWords: null,
-        };
-      } else if (subscription.planId === 'free' || subscription.planId === 'free_plan') {
+
+      if (subscription.planId === 'free' || subscription.planId === 'free_plan') {
         planData = {
           id: 'free',
           name: 'Free Plan',
@@ -143,6 +168,11 @@ export async function getUserSubscriptionInfo(userId: string) {
         return {
           hasPermission: false,
           subscription: null,
+          trial: {
+            isActive: false,
+            hasUsed: user.hasUsedTrial,
+            canStart: canStartTrial
+          },
           permissions: {
             aiPractice: false,
             aiChat: false,
@@ -150,62 +180,48 @@ export async function getUserSubscriptionInfo(userId: string) {
             exportData: false,
             viewMistakes: true,
           },
-          trialAvailable: true,
+          trialAvailable: canStartTrial,
         };
       }
     }
 
     // 检查订阅状态
-    const isActive = ['active', 'trialing'].includes(subscription.status);
+    const isActive = ['active'].includes(subscription.status); // 移除 'trialing'，因为现在使用独立试用系统
     const isExpired = subscription.currentPeriodEnd && subscription.currentPeriodEnd < new Date();
-    
-    // 🔧 修复：对于试用用户，还需要检查 trialEnd
-    const isTrialExpired = subscription.status === 'trialing' && 
-                          subscription.trialEnd && 
-                          subscription.trialEnd < new Date();
-    
-    const isReallyExpired = isExpired || isTrialExpired;
 
-    if (!isActive || isReallyExpired) {
+    if (!isActive || isExpired) {
       return {
         hasPermission: false,
         subscription: { ...subscription, plan: planData },
-        reason: isReallyExpired ? 'SUBSCRIPTION_EXPIRED' : 'SUBSCRIPTION_INACTIVE',
+        trial: {
+          isActive: false,
+          hasUsed: user.hasUsedTrial,
+          canStart: canStartTrial
+        },
+        reason: isExpired ? 'SUBSCRIPTION_EXPIRED' : 'SUBSCRIPTION_INACTIVE',
         permissions: {
           aiPractice: false,        // ❌ 无AI练习生成
           aiChat: false,            // ❌ 无AI对话
-          vocabulary: true,         // ✅ 生词本功能  
+          vocabulary: true,         // ✅ 生词本功能
           exportData: false,        // ❌ 不能导出
           viewMistakes: true,       // ✅ 无限复习功能
         },
-        trialAvailable: false,
+        trialAvailable: canStartTrial,
       };
     }
 
     // 获取套餐权限
     const planFeatures = planData.features as any;
-    
-    // 🔧 特殊处理：如果是试用状态，直接给予试用权限
-    if (subscription.status === 'trialing') {
-      log.info('🎯 Granting trial permissions for trialing user', { userId, status: subscription.status });
-      return {
-        hasPermission: true,
-        subscription: { ...subscription, plan: planData },
-        permissions: {
-          aiPractice: true,    // ✅ 试用用户可以使用AI练习
-          aiChat: true,        // ✅ 试用用户可以使用AI对话
-          exportData: true,    // ✅ 试用用户可以导出数据
-          viewMistakes: true,  // ✅ 试用用户可以查看错题
-          vocabulary: true,    // ✅ 试用用户可以使用词汇功能
-        },
-        trialAvailable: false,
-      };
-    }
-    
-    // 其他状态按正常逻辑处理
+
+    // 活跃付费订阅的权限
     return {
       hasPermission: true,
       subscription: { ...subscription, plan: planData },
+      trial: {
+        isActive: false,
+        hasUsed: user.hasUsedTrial,
+        canStart: false // 已有付费订阅，不需要试用
+      },
       permissions: {
         aiPractice: planFeatures.aiPractice || false,
         aiChat: planFeatures.aiChat || false,
@@ -213,7 +229,7 @@ export async function getUserSubscriptionInfo(userId: string) {
         viewMistakes: planFeatures.viewMistakes !== false, // 默认为true
         vocabulary: planFeatures.vocabulary !== false, // 默认为true
       },
-      trialAvailable: false,
+      trialAvailable: false, // 已有付费订阅
     };
   } catch (error) {
     log.error('Failed to get user subscription info', { error, userId });
@@ -254,38 +270,47 @@ export async function checkUsageQuota(userId: string, resourceType: string): Pro
           },
         });
 
-        // 如果没有今日记录，获取用户的订阅套餐信息来创建
+        // 如果没有今日记录，获取用户的订阅/试用信息来创建
         if (!quota) {
           const subscriptionInfo = await getUserSubscriptionInfo(userId);
-          if (subscriptionInfo.subscription?.plan) {
-            const plan = subscriptionInfo.subscription.plan;
-            let limitCount = null;
+          let limitCount = null;
 
+          // 优先检查试用状态
+          if (subscriptionInfo.trial?.isActive) {
+            // 试用用户的配额
+            if (resourceType === 'daily_practice') {
+              limitCount = null; // 试用用户练习无限制
+            } else if (resourceType === 'daily_ai_chat') {
+              limitCount = 20; // 试用用户每天20次AI对话
+            }
+          } else if (subscriptionInfo.subscription?.plan) {
+            // 付费用户的配额
+            const plan = subscriptionInfo.subscription.plan;
             if (resourceType === 'daily_practice') {
               limitCount = plan.dailyPracticeLimit;
             } else if (resourceType === 'daily_ai_chat') {
               limitCount = plan.dailyAiChatLimit;
             }
+          }
 
-            if (limitCount !== null) {
-              try {
-                quota = await prisma.usageQuota.create({
-                  data: {
-                    userId,
-                    resourceType,
-                    usedCount: 0,
-                    limitCount,
-                    periodStart: startOfDay,
-                    periodEnd: endOfDay,
-                  },
-                });
-              } catch (createError) {
-                log.warn('Failed to create usage quota record', {
+          if (limitCount !== null) {
+            try {
+              quota = await prisma.usageQuota.create({
+                data: {
                   userId,
                   resourceType,
-                  error: createError instanceof Error ? createError.message : String(createError)
-                });
-              }
+                  usedCount: 0,
+                  limitCount,
+                  periodStart: startOfDay,
+                  periodEnd: endOfDay,
+                },
+              });
+            } catch (createError) {
+              log.warn('Failed to create usage quota record', {
+                userId,
+                resourceType,
+                error: createError instanceof Error ? createError.message : String(createError)
+              });
             }
           }
         }
@@ -353,15 +378,34 @@ export async function checkUsageQuota(userId: string, resourceType: string): Pro
 }
 
 /**
- * 增加使用计数
+ * 增加使用计数（支持新试用系统）
  */
 export async function incrementUsage(userId: string, resourceType: string, amount: number = 1) {
   try {
+    // 对于AI对话，检查是否为试用用户
+    if (resourceType === 'daily_ai_chat') {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          trialStartedAt: true,
+          trialExpiresAt: true,
+        },
+      });
+
+      if (user && TrialService.isInTrial(user)) {
+        // 试用用户使用 TrialService
+        await TrialService.incrementAiChatUsage(userId);
+        log.info('Trial AI chat usage incremented', { userId, amount });
+        return;
+      }
+    }
+
+    // 非试用用户或非AI对话资源使用原有逻辑
     if (resourceType.startsWith('daily_')) {
       const now = new Date();
       const startOfDay = new Date(now);
       startOfDay.setHours(0, 0, 0, 0);
-      
+
       const endOfDay = new Date(now);
       endOfDay.setHours(23, 59, 59, 999);
 
@@ -507,20 +551,40 @@ export const requireAiChatAccess = async (
       });
     }
 
-    // 检查每日AI对话配额
-    const quota = await checkUsageQuota(userId, 'daily_ai_chat');
-    if (!quota.canUse) {
-      return res.status(403).json({
-        success: false,
-        error: `今日AI对话次数已用完 (${quota.used}/${quota.limit})`,
-        errorCode: 'USAGE_LIMIT_EXCEEDED',
-        data: {
-          used: quota.used,
-          limit: quota.limit,
-          resetAt: quota.resetAt,
-          upgradeUrl: '/pricing',
-        },
-      });
+    // 检查每日AI对话配额（支持新试用系统）
+    let quota;
+    if (subscriptionInfo.trial?.isActive) {
+      // 试用用户使用 TrialService 检查
+      quota = await TrialService.checkAiChatUsage(userId);
+      if (!quota.canUse) {
+        return res.status(403).json({
+          success: false,
+          error: `今日AI对话次数已用完 (${quota.remaining === 0 ? '20/20' : `${20 - quota.remaining}/20`})`,
+          errorCode: 'USAGE_LIMIT_EXCEEDED',
+          data: {
+            used: 20 - quota.remaining,
+            limit: 20,
+            remaining: quota.remaining,
+            upgradeUrl: '/pricing',
+          },
+        });
+      }
+    } else {
+      // 非试用用户使用原有逻辑
+      quota = await checkUsageQuota(userId, 'daily_ai_chat');
+      if (!quota.canUse) {
+        return res.status(403).json({
+          success: false,
+          error: `今日AI对话次数已用完 (${quota.used}/${quota.limit})`,
+          errorCode: 'USAGE_LIMIT_EXCEEDED',
+          data: {
+            used: quota.used,
+            limit: quota.limit,
+            resetAt: quota.resetAt,
+            upgradeUrl: '/pricing',
+          },
+        });
+      }
     }
 
     // 将订阅信息和配额信息添加到请求对象

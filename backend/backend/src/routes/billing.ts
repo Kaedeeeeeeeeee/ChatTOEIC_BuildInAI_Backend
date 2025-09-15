@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 import { authenticateToken } from '../middleware/auth.js';
 import { AuthenticatedRequest, getUserSubscriptionInfo, checkUsageQuota } from '../middleware/subscriptionAuth.js';
 import StripeService from '../services/stripeService.js';
+import TrialService from '../services/trialService.js';
 import { prisma } from '../utils/database.js';
 import { log } from '../utils/logger.js';
 
@@ -696,6 +697,7 @@ router.get('/user/subscription', authenticateToken, async (req: AuthenticatedReq
         },
         permissions,
         trialAvailable: subscriptionInfo.trialAvailable || true,
+        trial: subscriptionInfo.trial || null, // 新的试用状态信息
       },
     });
   } catch (error) {
@@ -709,60 +711,150 @@ router.get('/user/subscription', authenticateToken, async (req: AuthenticatedReq
 
 /**
  * POST /api/user/subscription/start-trial
- * 开始免费试用
+ * 开始免费试用（使用新的独立试用系统）
  */
 router.post('/user/subscription/start-trial', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.userId;
-    const { planId } = req.body;
+    const userEmail = req.user!.email;
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
 
-    // 默认使用premium_monthly套餐进行试用
-    const trialPlanId = planId || 'premium_monthly';
-    
-    const subscription = await StripeService.startTrial(userId, trialPlanId);
+    log.info('Trial start request', { userId, userEmail, ipAddress });
+
+    // 使用新的 TrialService 开始试用
+    const trialResult = await TrialService.startTrial(userId, userEmail, ipAddress);
 
     res.json({
       success: true,
       data: {
-        subscription: {
-          id: subscription.id,
-          status: subscription.status,
-          trialEnd: subscription.trialEnd?.toISOString(),
+        trial: {
+          userId: trialResult.userId,
+          status: trialResult.status,
+          startedAt: trialResult.trialStartedAt,
+          expiresAt: trialResult.trialExpiresAt,
         },
       },
       message: '免费试用已开始，可享受3天完整功能！',
     });
   } catch (error) {
-    log.error('Failed to start trial', { 
+    log.error('Failed to start trial', {
       error: error instanceof Error ? {
         message: error.message,
         stack: error.stack,
         name: error.name
       } : error,
-      userId: req.user?.userId,
-      planId: req.body?.planId
+      userId: req.user?.userId
     });
-    
+
     let errorMessage = '开始试用失败';
-    let debugInfo = '';
-    
+
     if (error instanceof Error) {
-      debugInfo = error.message;
-      if (error.message.includes('already used')) {
+      if (error.message.includes('已经使用过免费试用')) {
         errorMessage = '您已经使用过免费试用';
-      } else if (error.message.includes('active subscription')) {
-        errorMessage = '您已经有活跃的订阅';
-      } else if (error.message.includes('Plan not found')) {
-        errorMessage = '套餐未找到';
-      } else if (error.message.includes('User not found')) {
-        errorMessage = '用户未找到';
+      } else if (error.message.includes('此邮箱已使用过免费试用')) {
+        errorMessage = '此邮箱已使用过免费试用';
+      } else if (error.message.includes('试用次数过多')) {
+        errorMessage = '此网络环境试用次数过多，请联系客服';
+      } else if (error.message.includes('用户不存在')) {
+        errorMessage = '用户不存在';
+      } else {
+        errorMessage = process.env.NODE_ENV === 'development' ? error.message : '开始试用失败';
       }
     }
 
     res.status(400).json({
       success: false,
       error: errorMessage,
-      ...(process.env.NODE_ENV === 'development' && { debugInfo })
+      ...(process.env.NODE_ENV === 'development' && { debugInfo: error instanceof Error ? error.message : String(error) })
+    });
+  }
+});
+
+/**
+ * GET /api/user/subscription/trial-status
+ * 获取用户试用状态（新的独立试用系统）
+ */
+router.get('/user/subscription/trial-status', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+
+    const trialStatus = await TrialService.getTrialStatus(userId);
+
+    res.json({
+      success: true,
+      data: trialStatus,
+    });
+  } catch (error) {
+    log.error('Failed to get trial status', {
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : error,
+      userId: req.user?.userId
+    });
+
+    res.status(500).json({
+      success: false,
+      error: '获取试用状态失败',
+    });
+  }
+});
+
+/**
+ * GET /api/user/usage/ai-chat-remaining
+ * 检查AI对话余量（支持新试用系统）
+ */
+router.get('/user/usage/ai-chat-remaining', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+
+    // 检查用户是否在试用期内
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        trialStartedAt: true,
+        trialExpiresAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: '用户不存在',
+      });
+    }
+
+    let chatUsage;
+    if (TrialService.isInTrial(user)) {
+      // 试用用户使用 TrialService 检查
+      chatUsage = await TrialService.checkAiChatUsage(userId);
+    } else {
+      // 非试用用户使用原有逻辑
+      chatUsage = await checkUsageQuota(userId, 'daily_ai_chat');
+      chatUsage = {
+        canUse: chatUsage.canUse,
+        remaining: chatUsage.remaining || -1,
+      };
+    }
+
+    res.json({
+      success: true,
+      data: chatUsage,
+    });
+  } catch (error) {
+    log.error('Failed to check AI chat usage', {
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : error,
+      userId: req.user?.userId
+    });
+
+    res.status(500).json({
+      success: false,
+      error: '检查AI对话余量失败',
     });
   }
 });

@@ -64,7 +64,14 @@ model User {
   emailVerified     Boolean  @default(false)
   preferredLanguage String   @default("zh")
   isActive          Boolean  @default(true)
-  
+
+  // 试用系统（独立于订阅系统）
+  trialStartedAt    DateTime?
+  trialExpiresAt    DateTime?
+  hasUsedTrial      Boolean  @default(false)
+  trialEmail        String?  // 记录试用时的邮箱（防止改邮箱后重试）
+  trialIpAddress    String?  // 记录试用时的IP（防止恶意注册）
+
   // 用户设置
   settings          Json?
   
