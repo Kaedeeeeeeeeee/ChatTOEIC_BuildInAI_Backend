@@ -707,7 +707,7 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
     timestamp: new Date().toISOString()
   });
 
-  console.log(`🚀 ChatTOEIC API v2.0.0 服务器启动成功`);
+  console.log(`🚀 ChatTOEIC API v2.0.2-oauth-fix 服务器启动成功 [OAUTH-FIX-DEPLOYED]`);
   console.log(`📡 服务地址: http://localhost:${PORT}`);
   console.log(`🌍 环境: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🏥 健康检查: http://localhost:${PORT}/api/health`);
@@ -789,7 +789,7 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
 
   // 最终启动成功消息
   console.log('\n🎉 =================================');
-  console.log('✅ ChatTOEIC API 服务器启动完成！');
+  console.log('✅ ChatTOEIC API 服务器启动完成！[OAUTH-FIX-v2.0.2]');
   console.log('🌟 所有核心功能已就绪');
   console.log('🔗 服务状态: HEALTHY');
   console.log('=================================\n');
