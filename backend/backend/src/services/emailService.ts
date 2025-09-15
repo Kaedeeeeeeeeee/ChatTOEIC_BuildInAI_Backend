@@ -84,7 +84,8 @@ export class EmailService {
   private initializeResend() {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-      throw new Error('RESEND_API_KEY environment variable is required when not using Gmail SMTP');
+      console.warn('⚠️ RESEND_API_KEY not provided. Email service disabled.');
+      return;
     }
 
     this.resend = new Resend(apiKey);
