@@ -11,8 +11,10 @@ async function fixMigration() {
   try {
     console.log('🔧 Starting migration fix...');
 
-    // Mark the failed migration as resolved
-    console.log('📊 Resolving failed migration...');
+    // Mark all failed migrations as resolved
+    console.log('📊 Resolving failed migrations...');
+
+    // Mark phonetic column migration as resolved
     await prisma.$executeRawUnsafe(`
       UPDATE "_prisma_migrations"
       SET finished_at = NOW(),
@@ -22,11 +24,21 @@ async function fixMigration() {
       AND finished_at IS NULL
     `);
 
+    // Mark user trial fields migration as resolved
+    await prisma.$executeRawUnsafe(`
+      UPDATE "_prisma_migrations"
+      SET finished_at = NOW(),
+          applied_steps_count = 1,
+          logs = 'Fixed manually - column already exists'
+      WHERE migration_name = '20250815140000_add_user_trial_fields'
+      AND finished_at IS NULL
+    `);
+
     // Apply all missing columns with IF NOT EXISTS checks
     console.log('✅ Applying missing vocabulary table columns...');
 
-    // Check and add missing columns one by one
-    const missingColumns = [
+    // Check and add missing vocabulary columns one by one
+    const vocabularyColumns = [
       { name: 'audioUrl', type: 'TEXT' },
       { name: 'meanings', type: 'JSONB' },
       { name: 'language', type: 'TEXT NOT NULL DEFAULT \'en\'' },
@@ -41,7 +53,7 @@ async function fixMigration() {
       { name: 'updatedAt', type: 'TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP' }
     ];
 
-    for (const column of missingColumns) {
+    for (const column of vocabularyColumns) {
       try {
         await prisma.$executeRawUnsafe(`
           DO $$
@@ -54,9 +66,37 @@ async function fixMigration() {
               END IF;
           END $$;
         `);
-        console.log(`✅ Processed column: ${column.name}`);
+        console.log(`✅ Processed vocabulary column: ${column.name}`);
       } catch (error) {
-        console.warn(`⚠️  Warning processing column ${column.name}:`, error.message);
+        console.warn(`⚠️  Warning processing vocabulary column ${column.name}:`, error.message);
+      }
+    }
+
+    // Apply missing user trial columns
+    console.log('✅ Applying missing user trial columns...');
+
+    const userTrialColumns = [
+      { name: 'trialStartedAt', type: 'TIMESTAMP(3)' },
+      { name: 'trialEndedAt', type: 'TIMESTAMP(3)' },
+      { name: 'trialQuestionsUsed', type: 'INTEGER NOT NULL DEFAULT 0' }
+    ];
+
+    for (const column of userTrialColumns) {
+      try {
+        await prisma.$executeRawUnsafe(`
+          DO $$
+          BEGIN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='${column.name}') THEN
+                  ALTER TABLE "users" ADD COLUMN "${column.name}" ${column.type};
+                  RAISE NOTICE 'Added column ${column.name}';
+              ELSE
+                  RAISE NOTICE 'Column ${column.name} already exists';
+              END IF;
+          END $$;
+        `);
+        console.log(`✅ Processed user trial column: ${column.name}`);
+      } catch (error) {
+        console.warn(`⚠️  Warning processing user trial column ${column.name}:`, error.message);
       }
     }
 
