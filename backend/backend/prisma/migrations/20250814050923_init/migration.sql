@@ -18,9 +18,16 @@ CREATE TABLE "users" (
     "googleId" TEXT,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
     "preferredLanguage" TEXT NOT NULL DEFAULT 'zh',
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "trialStartedAt" TIMESTAMP(3),
+    "trialExpiresAt" TIMESTAMP(3),
+    "hasUsedTrial" BOOLEAN NOT NULL DEFAULT false,
+    "trialEmail" TEXT,
+    "trialIpAddress" TEXT,
     "settings" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "lastLoginAt" TIMESTAMP(3),
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
@@ -70,10 +77,19 @@ CREATE TABLE "vocabulary_items" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "word" TEXT NOT NULL,
-    "pronunciation" TEXT,
-    "definition" TEXT NOT NULL,
-    "example" TEXT,
-    "difficulty" "DifficultyLevel" NOT NULL DEFAULT 'INTERMEDIATE',
+    "definition" TEXT,
+    "phonetic" TEXT,
+    "audioUrl" TEXT,
+    "meanings" JSONB,
+    "language" TEXT NOT NULL DEFAULT 'en',
+    "reading" TEXT,
+    "jlpt" TEXT[],
+    "commonality" TEXT,
+    "notes" TEXT,
+    "mastered" BOOLEAN NOT NULL DEFAULT false,
+    "tags" TEXT[],
+    "definitionLoading" BOOLEAN NOT NULL DEFAULT false,
+    "definitionError" BOOLEAN NOT NULL DEFAULT false,
     "nextReviewDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "reviewCount" INTEGER NOT NULL DEFAULT 0,
     "correctCount" INTEGER NOT NULL DEFAULT 0,
@@ -82,6 +98,7 @@ CREATE TABLE "vocabulary_items" (
     "interval" INTEGER NOT NULL DEFAULT 1,
     "addedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastReviewedAt" TIMESTAMP(3),
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "vocabulary_items_pkey" PRIMARY KEY ("id")
 );
