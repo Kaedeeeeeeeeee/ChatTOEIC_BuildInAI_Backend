@@ -1661,6 +1661,63 @@ router.get('/check-database-columns', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/billing/test-vocabulary
+ * 测试词汇表API以调试错误
+ */
+router.get('/test-vocabulary', async (req: Request, res: Response) => {
+  try {
+    log.info('🔍 Testing vocabulary table access...');
+
+    // 先测试基本的查询
+    const rawQuery = await prisma.$queryRawUnsafe(`
+      SELECT * FROM vocabulary_items LIMIT 5
+    `);
+
+    log.info('Raw query result:', rawQuery);
+
+    // 然后测试Prisma查询
+    let prismaResult;
+    try {
+      prismaResult = await prisma.vocabularyItem.findMany({
+        take: 5,
+        select: {
+          id: true,
+          word: true,
+          definition: true,
+          phonetic: true,
+          userId: true
+        }
+      });
+    } catch (prismaError: any) {
+      log.error('Prisma query failed:', prismaError.message);
+      return res.json({
+        success: false,
+        error: 'Prisma query failed',
+        prismaError: prismaError.message,
+        rawQuerySuccess: true,
+        rawResult: rawQuery
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Vocabulary table test completed',
+      timestamp: new Date().toISOString(),
+      rawResult: rawQuery,
+      prismaResult
+    });
+
+  } catch (error: any) {
+    log.error('❌ Vocabulary test failed', { error: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Vocabulary test failed',
+      details: error.message
+    });
+  }
+});
+
+/**
  * POST /api/billing/add-trial-fields
  * 手动添加试用字段到users表（一次性修复）
  */
