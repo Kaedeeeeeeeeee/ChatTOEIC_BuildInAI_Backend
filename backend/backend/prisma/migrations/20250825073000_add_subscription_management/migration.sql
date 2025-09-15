@@ -1,6 +1,3 @@
--- Add test account field to user_subscriptions table
-ALTER TABLE "user_subscriptions" ADD COLUMN "isTestAccount" BOOLEAN NOT NULL DEFAULT FALSE;
-
 -- Create admin subscription logs table
 CREATE TABLE "admin_subscription_logs" (
     "id" TEXT NOT NULL,
