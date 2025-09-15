@@ -376,6 +376,25 @@ router.post('/emergency-migrate', async (req: Request, res: Response) => {
   try {
     log.info('🚀 Starting emergency database migration...');
 
+    // 🆘 紧急添加缺失的列
+    const missingColumns = [
+      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "trialStartedAt" TIMESTAMP(3);',
+      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "trialExpiresAt" TIMESTAMP(3);',
+      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "hasUsedTrial" BOOLEAN NOT NULL DEFAULT false;',
+      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "trialEmail" TEXT;',
+      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "trialIpAddress" TEXT;',
+      'ALTER TABLE "vocabulary_items" ADD COLUMN IF NOT EXISTS "phonetic" TEXT;'
+    ];
+
+    for (const sql of missingColumns) {
+      try {
+        await prisma.$executeRawUnsafe(sql);
+        log.info(`✅ Added column: ${sql}`);
+      } catch (error: any) {
+        log.warn(`⚠️ Column addition failed (may already exist): ${sql}`, { error: error.message });
+      }
+    }
+
     // 创建usage_quotas表
     await prisma.$executeRaw`
       CREATE TABLE IF NOT EXISTS usage_quotas (
