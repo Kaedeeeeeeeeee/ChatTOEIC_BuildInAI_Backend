@@ -167,6 +167,34 @@ router.post('/stripe-ids', async (req, res) => {
   }
 });
 
+// 只运行数据库迁移，不重置数据
+router.post('/migrate-only', async (req, res) => {
+  try {
+    console.log('🔄 运行数据库迁移...');
+
+    // 只运行迁移，不删除现有数据
+    const migrateResult = await execAsync('npx prisma migrate deploy --schema=prisma/schema.prisma');
+    console.log('迁移输出:', migrateResult.stdout);
+    if (migrateResult.stderr) {
+      console.warn('迁移警告:', migrateResult.stderr);
+    }
+
+    res.json({
+      success: true,
+      message: '数据库迁移成功',
+      output: migrateResult.stdout
+    });
+
+  } catch (error) {
+    console.error('❌ 数据库迁移失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '数据库迁移失败',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 // 检查数据库状态
 router.get('/database/status', async (req, res) => {
   try {
