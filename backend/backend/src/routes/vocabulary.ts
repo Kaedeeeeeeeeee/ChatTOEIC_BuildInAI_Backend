@@ -91,7 +91,7 @@ router.post(['/words', '/'],
           mastered: false,
           meanings: aiMeanings,
           commonality: wordDefinition?.commonality || null,
-          jlpt: wordDefinition?.jlpt ? [wordDefinition.jlpt] : [],
+          jlpt: Array.isArray(wordDefinition?.jlpt) ? wordDefinition.jlpt : (wordDefinition?.jlpt ? [wordDefinition.jlpt] : []),
           definitionLoading: false,
           definitionError: !wordDefinition, // 如果AI失败则标记为错误
           nextReviewDate: new Date()
