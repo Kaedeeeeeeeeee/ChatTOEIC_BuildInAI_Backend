@@ -25,7 +25,13 @@ router.get('/test', (req: Request, res: Response) => {
 // OAuth调试端点
 router.get('/oauth-debug', (req: Request, res: Response) => {
   try {
-    const backendUrl = process.env.BACKEND_URL || process.env.RAILWAY_STATIC_URL || 'https://chattoeicbuildinaibackend-production.up.railway.app';
+    let backendUrl = process.env.BACKEND_URL || process.env.RAILWAY_STATIC_URL || 'https://chattoeicbuildinaibackend-production.up.railway.app';
+
+    // 确保URL包含协议（Railway环境变量可能不包含https://）
+    if (backendUrl && !backendUrl.startsWith('http')) {
+      backendUrl = `https://${backendUrl}`;
+    }
+
     const redirectUri = `${backendUrl}/api/auth/google/callback`;
 
     const googleClient = new OAuth2Client(
@@ -622,7 +628,13 @@ router.get('/google', oauthRateLimit, (req: Request, res: Response) => {
     ];
 
     // 动态获取后端URL，优先使用环境变量
-    const backendUrl = process.env.BACKEND_URL || process.env.RAILWAY_STATIC_URL || 'https://chattoeicbuildinaibackend-production.up.railway.app';
+    let backendUrl = process.env.BACKEND_URL || process.env.RAILWAY_STATIC_URL || 'https://chattoeicbuildinaibackend-production.up.railway.app';
+
+    // 确保URL包含协议（Railway环境变量可能不包含https://）
+    if (backendUrl && !backendUrl.startsWith('http')) {
+      backendUrl = `https://${backendUrl}`;
+    }
+
     const redirectUri = `${backendUrl}/api/auth/google/callback`;
 
     console.log('🔧 OAuth配置信息:');
@@ -668,7 +680,13 @@ router.get('/google/callback', oauthRateLimit, async (req: Request, res: Respons
     // 使用授权码获取令牌
     console.log('准备交换授权码获取token...');
     // 使用相同的动态URL配置
-    const backendUrl = process.env.BACKEND_URL || process.env.RAILWAY_STATIC_URL || 'https://chattoeicbuildinaibackend-production.up.railway.app';
+    let backendUrl = process.env.BACKEND_URL || process.env.RAILWAY_STATIC_URL || 'https://chattoeicbuildinaibackend-production.up.railway.app';
+
+    // 确保URL包含协议（Railway环境变量可能不包含https://）
+    if (backendUrl && !backendUrl.startsWith('http')) {
+      backendUrl = `https://${backendUrl}`;
+    }
+
     const redirectUri = `${backendUrl}/api/auth/google/callback`;
 
     console.log('使用的redirect_uri:', redirectUri);
