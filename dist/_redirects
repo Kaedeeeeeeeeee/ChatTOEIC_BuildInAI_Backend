@@ -1,9 +1,0 @@
-# SPA fallback for React Router
-/*    /index.html   200
-
-# API calls should not be redirected
-/api/*  https://chattoeic-api.onrender.com/api/:splat  200
-
-# Static assets should be served directly
-/assets/*  /assets/:splat  200
-/favicon.ico  /favicon.ico  200
