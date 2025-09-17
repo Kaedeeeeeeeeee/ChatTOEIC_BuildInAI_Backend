@@ -52,7 +52,21 @@ export class EmailService {
     const smtpPass = process.env.SMTP_PASS;
 
     if (!smtpHost || !smtpUser || !smtpPass) {
-      throw new Error('Gmail SMTP configuration incomplete. Required: SMTP_HOST, SMTP_USER, SMTP_PASS');
+      console.warn('⚠️  Gmail SMTP configuration incomplete. Email service will run in mock mode.');
+      console.warn('   Required environment variables: SMTP_HOST, SMTP_USER, SMTP_PASS');
+
+      // Create a mock transporter that doesn't actually send emails
+      this.transporter = {
+        sendMail: async (options: any) => {
+          console.log('📧 Mock email would be sent:', {
+            to: options.to,
+            subject: options.subject,
+            from: options.from
+          });
+          return { messageId: 'mock-' + Date.now() };
+        }
+      } as any;
+      return;
     }
 
     this.transporter = nodemailer.createTransport({

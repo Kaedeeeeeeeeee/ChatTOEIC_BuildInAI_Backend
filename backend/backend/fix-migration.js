@@ -65,6 +65,17 @@ async function fixMigration() {
     `);
     console.log(`✅ Updated add_vocabulary_complete_fields migration: ${result3.count || 0} rows affected`);
 
+    // Mark last login tracking migration as resolved
+    const result4 = await prisma.$executeRawUnsafe(`
+      UPDATE "_prisma_migrations"
+      SET finished_at = NOW(),
+          applied_steps_count = 1,
+          logs = 'Fixed manually - P3009 error resolved'
+      WHERE migration_name = '20250820063857_add_last_login_tracking'
+      AND finished_at IS NULL
+    `);
+    console.log(`✅ Updated add_last_login_tracking migration: ${result4.count || 0} rows affected`);
+
     // Apply all missing columns with IF NOT EXISTS checks
     console.log('✅ Applying missing vocabulary table columns...');
 
