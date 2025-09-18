@@ -733,6 +733,35 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🌍 环境: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🏥 健康检查: http://localhost:${PORT}/api/health`);
   console.log(`📊 监控面板: http://localhost:${PORT}/api/monitoring/health/detailed`);
+
+  // 🚨 紧急修复：在服务器启动后立即执行数据库schema修复
+  try {
+    console.log(`🚨 正在执行realQuestions字段紧急修复...`);
+
+    const alterQueries = [
+      'ALTER TABLE "practice_records" ADD COLUMN IF NOT EXISTS "realQuestions" INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE "practice_records" ADD COLUMN IF NOT EXISTS "aiPoolQuestions" INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE "practice_records" ADD COLUMN IF NOT EXISTS "realtimeQuestions" INTEGER NOT NULL DEFAULT 0'
+    ];
+
+    for (const query of alterQueries) {
+      try {
+        await prisma.$executeRawUnsafe(query);
+        console.log(`✅ 字段修复成功: ${query.substring(30, 70)}...`);
+      } catch (error: any) {
+        if (error.message.includes('already exists')) {
+          console.log(`ℹ️ 字段已存在，跳过`);
+        } else {
+          console.warn(`⚠️ 字段修复警告:`, error.message);
+        }
+      }
+    }
+
+    console.log(`🎉 数据库schema修复完成，历史记录功能已恢复`);
+  } catch (error: any) {
+    console.error(`💥 数据库修复失败:`, error.message);
+    console.log(`⚠️ 服务器将继续启动，但历史记录功能可能不可用`);
+  }
   
   // 显示特殊启动模式提示
   if (process.env.BASELINE_COMPLETED === 'true') {
