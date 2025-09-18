@@ -57,11 +57,23 @@ npx prisma migrate deploy --schema=prisma/schema.prisma || echo "Migration deplo
 
 # 紧急修复：添加realQuestions字段
 echo "🚨 Running realQuestions field emergency fix..."
+echo "Current directory: $(pwd)"
+echo "Looking for fix-realquestions-field.js..."
+find . -name "fix-realquestions-field.js" -type f 2>/dev/null
+
 if [ -f "fix-realquestions-field.js" ]; then
+    echo "✅ Found fix-realquestions-field.js in current directory"
     node fix-realquestions-field.js
     echo "✅ realQuestions field fix completed"
+elif [ -f "./fix-realquestions-field.js" ]; then
+    echo "✅ Found fix-realquestions-field.js with relative path"
+    node ./fix-realquestions-field.js
+    echo "✅ realQuestions field fix completed"
 else
-    echo "⚠️  realQuestions fix script not found, proceeding without fix..."
+    echo "⚠️  realQuestions fix script not found in current directory"
+    echo "Directory contents:"
+    ls -la | grep -E "\.(js|ts)$"
+    echo "Proceeding without fix..."
 fi
 
 echo "✅ Database setup completed"
