@@ -15,6 +15,7 @@
     "start": "./start.sh",
     "start:bypass": "node bypass-all-migrations.js",
     "start:simple": "node simple-db-fix.js && node dist/server.js",
+    "start:fix-realquestions": "node fix-realquestions-field.js && node dist/server.js",
     "start:server": "node dist/server.js",
     "migration:generate": "npx prisma migrate dev --schema=prisma/schema.prisma",
     "migration:deploy": "npx prisma migrate deploy --schema=prisma/schema.prisma",

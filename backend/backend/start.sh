@@ -55,6 +55,15 @@ fi
 echo "📊 Deploying database migrations..."
 npx prisma migrate deploy --schema=prisma/schema.prisma || echo "Migration deploy failed, but continuing..."
 
+# 紧急修复：添加realQuestions字段
+echo "🚨 Running realQuestions field emergency fix..."
+if [ -f "fix-realquestions-field.js" ]; then
+    node fix-realquestions-field.js
+    echo "✅ realQuestions field fix completed"
+else
+    echo "⚠️  realQuestions fix script not found, proceeding without fix..."
+fi
+
 echo "✅ Database setup completed"
 
 echo "🎯 Starting ChatTOEIC Backend Server..."
