@@ -302,17 +302,21 @@ ${customPrompt ? `特殊要求：${customPrompt}` : ''}
 
 请严格按照JSON格式要求生成${articleCount}篇商务文档，每篇文档包含4道${targetScore}分难度的文本完成题。
 
-**🔥 MANDATORY: 必须使用document+questions数组格式！🔥**
+**🔥 MANDATORY: 必须使用document+blanks数组格式！🔥**
 
-**❌ 禁止格式：{"question": "阅读下面...", "options": [...]}**
-**✅ 必须格式：{"document": "完整文档内容", "questions": [4个题目对象]}**
+**❌❌❌ 绝对禁止旧格式：{"question": "阅读下面...", "questions": [...]}**
+**✅✅✅ 唯一正确格式：{"document": "文档[BLANK1]内容[BLANK2]", "blanks": [4个空白对象]}**
+
+**🚨 CRITICAL: 不要使用questions字段，必须使用blanks字段！🚨**
 
 Part 6特征：
-- 生成${articleCount}个文档对象，每个包含document字段和questions数组
-- **document字段：包含带4个_____空白的完整商务文档**
-- **questions数组：包含4个题目对象，对应4个空白**
+- 生成${articleCount}个文档对象，每个包含document字段和blanks数组
+- **document字段：包含带[BLANK1]、[BLANK2]、[BLANK3]、[BLANK4]标记的完整商务文档**
+- **blanks数组：包含4个空白对象，对应4个标记位置**
 - 前3个空白是语法/词汇填空题，第4个空白是完整句子插入题
 - 真实商务场景和语境
+
+**🔥🔥🔥 关键要求：使用blanks不是questions！🔥🔥🔥**
 
 **文档类型建议（每篇可选择不同类型）：**
 - 商业邮件（To/From/Subject/Date格式）
@@ -364,22 +368,25 @@ Part 6特征：
 
 **⚠️ 违反格式要求将导致生成失败！⚠️**
 
-🔥🔥🔥 ABSOLUTE REQUIREMENTS（新简化格式）: 🔥🔥🔥
+🔥🔥🔥 FINAL CRITICAL REQUIREMENTS: 🔥🔥🔥
+
+**🚨🚨🚨 如果使用错误格式，生成将完全失败！🚨🚨🚨**
+
 1. **ONLY返回JSON数组，包含${articleCount}个文档对象，不要任何其他文字**
-2. **🔥 每个对象必须有document字段和blanks数组，用[BLANK1]、[BLANK2]等标记空白位置！🔥**
-3. **document字段：包含带[BLANK1]、[BLANK2]、[BLANK3]、[BLANK4]标记的完整商务文档**
-4. **blanks数组：包含4个空白对象，每个包含id、options、correctAnswer、explanation、type**
-5. **空白位置用[BLANK1]、[BLANK2]、[BLANK3]、[BLANK4]标记，不要用_____**
+2. **🔥 每个对象必须有document字段和blanks数组（不是questions数组）！🔥**
+3. **document字段：使用[BLANK1]、[BLANK2]、[BLANK3]、[BLANK4]标记位置**
+4. **blanks数组：恰好4个对象，每个包含id、options、correctAnswer、explanation**
 
-**❌❌❌ 禁止的旧格式：**
-{"question": "阅读下面的...", "questions": [...]}
+**❌❌❌ 以下格式将导致失败：**
+- {"question": "...", "questions": [...]}  ← 错误！
+- {"document": "...", "questions": [...]}  ← 错误！
 
-**✅✅✅ 新的正确格式：**
-{"document": "文档内容[BLANK1]更多内容[BLANK2]...", "blanks": [{id:1,...}, {id:2,...}]}
+**✅✅✅ 唯一接受的格式：**
+{"document": "内容[BLANK1]更多[BLANK2]...", "blanks": [{id:1,...}, {id:2,...}, {id:3,...}, {id:4,...}]}
 
-**🚫 必须用[BLANK1]等标记代替_____，必须用blanks数组代替questions数组！🚫**
+**🔥 WARNING: 使用questions字段将导致解析失败！必须使用blanks字段！🔥**
 
-🔥 立即按照新示例格式生成，document+blanks数组！🔥`;
+🚨 立即严格按照上述格式生成！🚨`;
   }
 
   private buildChatPrompt(message: string, context?: any): string {
