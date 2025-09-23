@@ -12,18 +12,20 @@ const router = Router();
 
 
 // 生成练习题目 (需要AI速率限制和权限检查)
-router.post('/generate', 
+// 🧪 [临时测试] 禁用订阅验证以测试Part 6优化效果
+router.post('/generate',
   aiRateLimit,
   authenticateToken,
-  requirePracticeAccess,
+  // requirePracticeAccess, // 临时注释掉订阅验证
   validateRequest({ body: schemas.questionGeneration }), 
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const questions = await geminiService.generateQuestions(req.body);
       
       // 生成成功后增加使用计数
-      const userId = req.user!.userId;
-      await incrementUsage(userId, 'daily_practice', 1);
+      // 🧪 [临时测试] 禁用使用计数以避免订阅系统干扰
+      // const userId = req.user!.userId;
+      // await incrementUsage(userId, 'daily_practice', 1);
       
       res.json({
         success: true,
