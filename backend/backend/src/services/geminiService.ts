@@ -320,43 +320,43 @@ Part 6特征：
 - 公司通知/公告
 - 产品广告/推广
 
-**EXACT JSON FORMAT（完全按此格式）：**
+**🔥 新的简化JSON格式（更稳定可靠）：**
 [
   {
-    "question": "Part 6阅读文档练习",
-    "document": "To: All Staff\\nFrom: Marketing Department\\nSubject: New Product Launch\\nDate: March 15, 2024\\n\\nDear Team,\\n\\nWe are excited to announce the launch of our new product line. _____ extensive market research, we believe this product will significantly boost our sales.\\n\\nThe marketing campaign will begin next month. _____ will include digital advertising, social media promotion, and traditional print media.\\n\\nWe need all departments to _____ closely during this critical period. Your cooperation is essential for success.\\n\\n_____ Please submit your departmental reports by Friday.\\n\\nBest regards,\\nMarketing Team",
-    "questions": [
+    "type": "READING_PART6",
+    "category": "Part 6 - 短文填空",
+    "difficulty": "${difficulty}",
+    "document": "To: All Staff\\nFrom: Marketing Department\\nSubject: New Product Launch\\nDate: March 15, 2024\\n\\nDear Team,\\n\\nWe are excited to announce the launch of our new product line. [BLANK1] extensive market research, we believe this product will significantly boost our sales.\\n\\nThe marketing campaign will begin next month. [BLANK2] will include digital advertising, social media promotion, and traditional print media.\\n\\nWe need all departments to [BLANK3] closely during this critical period. Your cooperation is essential for success.\\n\\n[BLANK4] Please submit your departmental reports by Friday.\\n\\nBest regards,\\nMarketing Team",
+    "blanks": [
       {
-        "blankNumber": 1,
-        "question": "Choose the best option for blank 1.",
+        "id": 1,
         "options": ["A) After", "B) Before", "C) During", "D) Despite"],
         "correctAnswer": 0,
-        "explanation": "用中文解释：'After extensive market research'表示在广泛的市场调研之后，符合逻辑顺序"
+        "explanation": "用中文解释：'After extensive market research'表示在广泛的市场调研之后，符合逻辑顺序",
+        "type": "grammar"
       },
       {
-        "blankNumber": 2,
-        "question": "Choose the best option for blank 2.",
+        "id": 2,
         "options": ["A) It", "B) They", "C) We", "D) This"],
         "correctAnswer": 0,
-        "explanation": "用中文解释：指代'The marketing campaign'，用单数代词'It'"
+        "explanation": "用中文解释：指代'The marketing campaign'，用单数代词'It'",
+        "type": "pronoun"
       },
       {
-        "blankNumber": 3,
-        "question": "Choose the best option for blank 3.",
+        "id": 3,
         "options": ["A) work", "B) working", "C) worked", "D) to work"],
         "correctAnswer": 3,
-        "explanation": "用中文解释：need sb to do sth，需要某人做某事，应该用'to work'"
+        "explanation": "用中文解释：need sb to do sth，需要某人做某事，应该用'to work'",
+        "type": "verb_form"
       },
       {
-        "blankNumber": 4,
-        "question": "Choose the best sentence for blank 4.",
+        "id": 4,
         "options": ["A) The deadline is non-negotiable.", "B) We appreciate your patience during this transition.", "C) Training sessions will be held next week.", "D) Please contact HR for any questions."],
         "correctAnswer": 0,
-        "explanation": "用中文解释：强调提交报告的最后期限不可协商，与前文的urgency呼应"
+        "explanation": "用中文解释：强调提交报告的最后期限不可协商，与前文的urgency呼应",
+        "type": "sentence_insertion"
       }
-    ],
-    "category": "Part 6 - 短文填空",
-    "difficulty": "${difficulty}"
+    ]
   }
 ]
 
@@ -364,22 +364,22 @@ Part 6特征：
 
 **⚠️ 违反格式要求将导致生成失败！⚠️**
 
-🔥🔥🔥 ABSOLUTE REQUIREMENTS: 🔥🔥🔥
+🔥🔥🔥 ABSOLUTE REQUIREMENTS（新简化格式）: 🔥🔥🔥
 1. **ONLY返回JSON数组，包含${articleCount}个文档对象，不要任何其他文字**
-2. **🔥 每个对象必须有document字段和questions字段，不要用question字段！🔥**
-3. **document字段：包含带4个_____空白的完整商务文档（不要描述语）**
-4. **questions字段：包含4个题目对象的数组**
-5. **每个题目包含blankNumber、question、options、correctAnswer、explanation**
+2. **🔥 每个对象必须有document字段和blanks数组，用[BLANK1]、[BLANK2]等标记空白位置！🔥**
+3. **document字段：包含带[BLANK1]、[BLANK2]、[BLANK3]、[BLANK4]标记的完整商务文档**
+4. **blanks数组：包含4个空白对象，每个包含id、options、correctAnswer、explanation、type**
+5. **空白位置用[BLANK1]、[BLANK2]、[BLANK3]、[BLANK4]标记，不要用_____**
 
-**❌❌❌ 绝对禁止的错误格式：**
-{"question": "阅读下面的...", "options": [...]}
+**❌❌❌ 禁止的旧格式：**
+{"question": "阅读下面的...", "questions": [...]}
 
-**✅✅✅ 唯一正确的格式：**
-{"document": "To: Staff...", "questions": [...]}
+**✅✅✅ 新的正确格式：**
+{"document": "文档内容[BLANK1]更多内容[BLANK2]...", "blanks": [{id:1,...}, {id:2,...}]}
 
-**🚫 如果返回错误格式，整个生成过程将失败！🚫**
+**🚫 必须用[BLANK1]等标记代替_____，必须用blanks数组代替questions数组！🚫**
 
-🔥 现在立即按照示例格式生成，document字段+4个题目对象的questions数组！🔥`;
+🔥 立即按照新示例格式生成，document+blanks数组！🔥`;
   }
 
   private buildChatPrompt(message: string, context?: any): string {
@@ -477,7 +477,32 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
     const expandedQuestions: GeneratedQuestion[] = [];
 
     documents.forEach((docItem: any, docIndex: number) => {
-      if (docItem.document && docItem.questions && Array.isArray(docItem.questions)) {
+      // 新格式：document + blanks数组
+      if (docItem.document && docItem.blanks && Array.isArray(docItem.blanks)) {
+        console.log(`🔥 [Part 6解析] 发现新格式文档 ${docIndex}，包含 ${docItem.blanks.length} 个空白`);
+
+        docItem.blanks.forEach((blank: any, blankIndex: number) => {
+          // 为每个空白创建独立的题目，都包含完整文档
+          const documentWithHighlight = this.highlightBlank(docItem.document, blank.id);
+
+          expandedQuestions.push({
+            id: `q_${Date.now()}_${docIndex}_${blankIndex}`,
+            type: request.type || 'READING_PART6',
+            category: docItem.category || 'Part 6 - 短文填空',
+            difficulty: docItem.difficulty || request.difficulty,
+            question: documentWithHighlight,
+            options: blank.options || [],
+            correctAnswer: blank.correctAnswer || 0,
+            explanation: blank.explanation || '',
+            passage: docItem.document,
+            blankNumber: blank.id
+          });
+        });
+      }
+      // 旧格式兼容：document + questions数组
+      else if (docItem.document && docItem.questions && Array.isArray(docItem.questions)) {
+        console.log(`🔄 [Part 6解析] 检测到旧格式文档 ${docIndex}，使用兼容处理`);
+
         // 第一题包含完整文档
         const firstQuestion = docItem.questions[0];
         expandedQuestions.push({
@@ -485,7 +510,7 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
           type: request.type || 'READING_PART6',
           category: docItem.category || 'Part 6 - 短文填空',
           difficulty: docItem.difficulty || request.difficulty,
-          question: docItem.document, // 完整文档作为题目内容
+          question: docItem.document,
           options: firstQuestion?.options || [],
           correctAnswer: firstQuestion?.correctAnswer || 0,
           explanation: firstQuestion?.explanation || '',
@@ -506,7 +531,7 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
           });
         });
       } else {
-        // 后备处理：如果格式不符合预期，按普通题目处理
+        // 后备处理：普通单题格式
         console.warn(`⚠️ [Part 6解析] 文档 ${docIndex} 格式不正确，使用默认处理`);
         expandedQuestions.push({
           id: `q_${Date.now()}_${docIndex}`,
@@ -523,6 +548,22 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
 
     console.log('🔍 [Part 6解析] 展开后的题目数量:', expandedQuestions.length);
     return expandedQuestions;
+  }
+
+  // 辅助方法：高亮指定的空白位置
+  private highlightBlank(document: string, blankId: number): string {
+    // 将所有 [BLANK1]、[BLANK2] 等替换为 _____，但高亮当前空白
+    let result = document;
+    for (let i = 1; i <= 4; i++) {
+      if (i === blankId) {
+        // 当前空白保持高亮标记或使用特殊标记
+        result = result.replace(`[BLANK${i}]`, `_____ `);
+      } else {
+        // 其他空白替换为普通下划线
+        result = result.replace(`[BLANK${i}]`, '_____');
+      }
+    }
+    return result;
   }
 }
 
