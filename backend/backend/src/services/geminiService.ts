@@ -506,37 +506,67 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
           });
         });
       }
-      // 旧格式兼容：document + questions数组
+      // 旧格式兼容：document + questions数组 - 强制处理为4个独立题目
       else if (docItem.document && docItem.questions && Array.isArray(docItem.questions)) {
-        console.log(`🔄 [Part 6解析] 检测到旧格式文档 ${docIndex}，使用兼容处理`);
+        console.log(`🔄 [Part 6解析] 检测到旧格式文档 ${docIndex}，使用智能强制处理`);
 
-        // 第一题包含完整文档
-        const firstQuestion = docItem.questions[0];
-        expandedQuestions.push({
-          id: `q_${Date.now()}_${docIndex}_0`,
-          type: request.type || 'READING_PART6',
-          category: docItem.category || 'Part 6 - 短文填空',
-          difficulty: docItem.difficulty || request.difficulty,
-          question: docItem.document,
-          options: firstQuestion?.options || [],
-          correctAnswer: firstQuestion?.correctAnswer || 0,
-          explanation: firstQuestion?.explanation || '',
-          passage: docItem.document
-        });
+        // 检测文档中是否包含[BLANK1]等标记
+        const hasNewMarkings = docItem.document && (
+          docItem.document.includes('[BLANK1]') ||
+          docItem.document.includes('[BLANK2]') ||
+          docItem.document.includes('[BLANK3]') ||
+          docItem.document.includes('[BLANK4]')
+        );
 
-        // 后续题目不包含文档，只有题目内容
-        docItem.questions.slice(1).forEach((subQuestion: any, subIndex: number) => {
+        if (hasNewMarkings) {
+          console.log(`🔥 [智能处理] 文档包含[BLANK]标记，强制生成4个独立题目`);
+
+          // 为每个空白位置生成独立题目
+          for (let i = 1; i <= 4; i++) {
+            const documentWithHighlight = this.highlightBlank(docItem.document, i);
+
+            expandedQuestions.push({
+              id: `q_${Date.now()}_${docIndex}_${i-1}`,
+              type: request.type || 'READING_PART6',
+              category: docItem.category || 'Part 6 - 短文填空',
+              difficulty: docItem.difficulty || request.difficulty,
+              question: documentWithHighlight,
+              options: this.generateBlankOptions(i), // 生成默认选项
+              correctAnswer: 0, // 默认答案
+              explanation: `这是第${i}个空白的默认解释。`,
+              passage: docItem.document,
+              blankNumber: i
+            });
+          }
+        } else {
+          // 原有逻辑：第一题包含完整文档
+          const firstQuestion = docItem.questions[0];
           expandedQuestions.push({
-            id: `q_${Date.now()}_${docIndex}_${subIndex + 1}`,
+            id: `q_${Date.now()}_${docIndex}_0`,
             type: request.type || 'READING_PART6',
             category: docItem.category || 'Part 6 - 短文填空',
             difficulty: docItem.difficulty || request.difficulty,
-            question: subQuestion.question || `Choose the best option for blank ${subQuestion.blankNumber || subIndex + 2}.`,
-            options: subQuestion.options || [],
-            correctAnswer: subQuestion.correctAnswer || 0,
-            explanation: subQuestion.explanation || ''
+            question: docItem.document,
+            options: firstQuestion?.options || [],
+            correctAnswer: firstQuestion?.correctAnswer || 0,
+            explanation: firstQuestion?.explanation || '',
+            passage: docItem.document
           });
-        });
+
+          // 后续题目不包含文档，只有题目内容
+          docItem.questions.slice(1).forEach((subQuestion: any, subIndex: number) => {
+            expandedQuestions.push({
+              id: `q_${Date.now()}_${docIndex}_${subIndex + 1}`,
+              type: request.type || 'READING_PART6',
+              category: docItem.category || 'Part 6 - 短文填空',
+              difficulty: docItem.difficulty || request.difficulty,
+              question: subQuestion.question || `Choose the best option for blank ${subQuestion.blankNumber || subIndex + 2}.`,
+              options: subQuestion.options || [],
+              correctAnswer: subQuestion.correctAnswer || 0,
+              explanation: subQuestion.explanation || ''
+            });
+          });
+        }
       } else {
         // 后备处理：普通单题格式
         console.warn(`⚠️ [Part 6解析] 文档 ${docIndex} 格式不正确，使用默认处理`);
@@ -571,6 +601,19 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
       }
     }
     return result;
+  }
+
+  // 辅助方法：为空白位置生成默认选项（当Gemini API格式不完整时使用）
+  private generateBlankOptions(blankNumber: number): string[] {
+    const defaultOptions = {
+      1: ["A) However", "B) Therefore", "C) Moreover", "D) Nevertheless"],
+      2: ["A) It", "B) They", "C) These", "D) This"],
+      3: ["A) work", "B) working", "C) to work", "D) worked"],
+      4: ["A) We appreciate your cooperation.", "B) Please contact us for details.", "C) Training will be provided.", "D) Questions are welcome."]
+    };
+
+    return defaultOptions[blankNumber as keyof typeof defaultOptions] ||
+           ["A) Option A", "B) Option B", "C) Option C", "D) Option D"];
   }
 }
 
