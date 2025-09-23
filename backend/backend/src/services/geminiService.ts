@@ -236,7 +236,12 @@ ${context ? `上下文：${context}` : ''}
 
   private buildQuestionPrompt(request: QuestionGenerationRequest): string {
     const { type, difficulty, count, topic, customPrompt } = request;
-    
+
+    // Part 6特殊处理：使用文档+题目格式
+    if (type === 'READING_PART6' || type?.includes('part6') || type?.includes('Part 6')) {
+      return this.buildPart6Prompt(request);
+    }
+
     let prompt = `
 作为TOEIC题目生成专家，请生成${count}道${this.getTypeDescription(type)}题目。
 
@@ -266,6 +271,103 @@ ${customPrompt ? `特殊要求：${customPrompt}` : ''}
     `;
 
     return prompt;
+  }
+
+  private buildPart6Prompt(request: QuestionGenerationRequest): string {
+    const { difficulty, count } = request;
+
+    // 将难度等级转换为TOEIC分数范围
+    const difficultyToScore = (level: string | number): string => {
+      const levelNum = typeof level === 'string' ? parseInt(level) : level;
+      switch (levelNum) {
+        case 1: return '500';
+        case 2: return '500-600';
+        case 3: return '600-700';
+        case 4: return '700-800';
+        case 5: return '800';
+        default: return '600-700';
+      }
+    };
+
+    const targetScore = difficultyToScore(difficulty);
+
+    // Part 6特殊逻辑：count表示文章数量，每篇文章4题
+    const articleCount = count;
+
+    return `你是专业的TOEIC Part 6出题专家。请严格按照JSON格式要求生成${articleCount}篇商务文档，每篇文档包含4道${targetScore}分难度的文本完成题。
+
+**🚨 CRITICAL: 使用全新的文档+题目组合格式 🚨**
+
+**必须按照以下特殊格式生成，不要使用旧的单题格式：**
+
+Part 6特征：
+- 生成${articleCount}个文档对象，每个包含document字段和questions数组
+- **document字段：包含带4个_____空白的完整商务文档**
+- **questions数组：包含4个题目对象，对应4个空白**
+- 前3个空白是语法/词汇填空题，第4个空白是完整句子插入题
+- 真实商务场景和语境
+
+**文档类型建议（每篇可选择不同类型）：**
+- 商业邮件（To/From/Subject/Date格式）
+- 公司备忘录（MEMO TO/FROM/DATE/RE格式）
+- 公司通知/公告
+- 产品广告/推广
+
+**EXACT JSON FORMAT（完全按此格式）：**
+[
+  {
+    "question": "Part 6阅读文档练习",
+    "document": "To: All Staff\\nFrom: Marketing Department\\nSubject: New Product Launch\\nDate: March 15, 2024\\n\\nDear Team,\\n\\nWe are excited to announce the launch of our new product line. _____ extensive market research, we believe this product will significantly boost our sales.\\n\\nThe marketing campaign will begin next month. _____ will include digital advertising, social media promotion, and traditional print media.\\n\\nWe need all departments to _____ closely during this critical period. Your cooperation is essential for success.\\n\\n_____ Please submit your departmental reports by Friday.\\n\\nBest regards,\\nMarketing Team",
+    "questions": [
+      {
+        "blankNumber": 1,
+        "question": "Choose the best option for blank 1.",
+        "options": ["A) After", "B) Before", "C) During", "D) Despite"],
+        "correctAnswer": 0,
+        "explanation": "用中文解释：'After extensive market research'表示在广泛的市场调研之后，符合逻辑顺序"
+      },
+      {
+        "blankNumber": 2,
+        "question": "Choose the best option for blank 2.",
+        "options": ["A) It", "B) They", "C) We", "D) This"],
+        "correctAnswer": 0,
+        "explanation": "用中文解释：指代'The marketing campaign'，用单数代词'It'"
+      },
+      {
+        "blankNumber": 3,
+        "question": "Choose the best option for blank 3.",
+        "options": ["A) work", "B) working", "C) worked", "D) to work"],
+        "correctAnswer": 3,
+        "explanation": "用中文解释：need sb to do sth，需要某人做某事，应该用'to work'"
+      },
+      {
+        "blankNumber": 4,
+        "question": "Choose the best sentence for blank 4.",
+        "options": ["A) The deadline is non-negotiable.", "B) We appreciate your patience during this transition.", "C) Training sessions will be held next week.", "D) Please contact HR for any questions."],
+        "correctAnswer": 0,
+        "explanation": "用中文解释：强调提交报告的最后期限不可协商，与前文的urgency呼应"
+      }
+    ],
+    "category": "Part 6 - 短文填空",
+    "difficulty": "${difficulty}"
+  }
+]
+
+🚨🚨🚨 CRITICAL FORMAT REQUIREMENTS 🚨🚨🚨
+
+**绝对不要使用旧格式！必须使用新的document+questions格式！**
+
+重要提示：
+1. **ONLY返回JSON数组，包含${articleCount}个文档对象，不要任何其他文字**
+2. **🔥 每个对象必须有document字段和questions字段，不要用question字段！🔥**
+3. **document字段：包含带4个_____空白的完整商务文档（不要描述语）**
+4. **questions字段：包含4个题目对象的数组**
+5. **每个题目包含blankNumber、question、options、correctAnswer、explanation**
+6. **❌ 错误格式：{"question": "阅读下面的...", "options": [...]}**
+7. **✅ 正确格式：{"document": "To: Staff...", "questions": [...]}**
+8. 前3个空白是语法/词汇题，第4个空白是句子插入题
+
+🔥 必须严格按照示例格式，包含document字段和questions数组！🔥`;
   }
 
   private buildChatPrompt(message: string, context?: any): string {
@@ -313,6 +415,11 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
       throw new Error('Invalid questions format');
     }
 
+    // Part 6特殊处理：检测并展开文档+题目格式
+    if (request.type === 'READING_PART6' || request.type?.includes('part6') || request.type?.includes('Part 6')) {
+      return this.expandPart6Questions(questions, request);
+    }
+
     return questions.map((q, index) => {
       // 将字符串形式的正确答案转换为数字索引
       let correctAnswerIndex = 0;
@@ -327,7 +434,7 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
       // 确保分类正确设置
       const questionType = q.type || request.type;
       let category = q.category;
-      
+
       if (!category || category === '未分类' || category === 'undefined') {
         // 根据题目类型推断分类
         category = getCategory(questionType);
@@ -351,6 +458,59 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
         imageUrl: q.imageUrl
       };
     });
+  }
+
+  private expandPart6Questions(documents: any[], request: QuestionGenerationRequest): GeneratedQuestion[] {
+    console.log('🔍 [Part 6解析] 发现新格式文档，展开为独立题目');
+    const expandedQuestions: GeneratedQuestion[] = [];
+
+    documents.forEach((docItem: any, docIndex: number) => {
+      if (docItem.document && docItem.questions && Array.isArray(docItem.questions)) {
+        // 第一题包含完整文档
+        const firstQuestion = docItem.questions[0];
+        expandedQuestions.push({
+          id: `q_${Date.now()}_${docIndex}_0`,
+          type: request.type || 'READING_PART6',
+          category: docItem.category || 'Part 6 - 短文填空',
+          difficulty: docItem.difficulty || request.difficulty,
+          question: docItem.document, // 完整文档作为题目内容
+          options: firstQuestion?.options || [],
+          correctAnswer: firstQuestion?.correctAnswer || 0,
+          explanation: firstQuestion?.explanation || '',
+          passage: docItem.document
+        });
+
+        // 后续题目不包含文档，只有题目内容
+        docItem.questions.slice(1).forEach((subQuestion: any, subIndex: number) => {
+          expandedQuestions.push({
+            id: `q_${Date.now()}_${docIndex}_${subIndex + 1}`,
+            type: request.type || 'READING_PART6',
+            category: docItem.category || 'Part 6 - 短文填空',
+            difficulty: docItem.difficulty || request.difficulty,
+            question: subQuestion.question || `Choose the best option for blank ${subQuestion.blankNumber || subIndex + 2}.`,
+            options: subQuestion.options || [],
+            correctAnswer: subQuestion.correctAnswer || 0,
+            explanation: subQuestion.explanation || ''
+          });
+        });
+      } else {
+        // 后备处理：如果格式不符合预期，按普通题目处理
+        console.warn(`⚠️ [Part 6解析] 文档 ${docIndex} 格式不正确，使用默认处理`);
+        expandedQuestions.push({
+          id: `q_${Date.now()}_${docIndex}`,
+          type: request.type || 'READING_PART6',
+          category: 'Part 6 - 短文填空',
+          difficulty: request.difficulty,
+          question: docItem.question || '题目内容缺失',
+          options: docItem.options || [],
+          correctAnswer: docItem.correctAnswer || 0,
+          explanation: docItem.explanation || ''
+        });
+      }
+    });
+
+    console.log('🔍 [Part 6解析] 展开后的题目数量:', expandedQuestions.length);
+    return expandedQuestions;
   }
 }
 
