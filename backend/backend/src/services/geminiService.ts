@@ -589,18 +589,9 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
 
   // 辅助方法：高亮指定的空白位置
   private highlightBlank(document: string, blankId: number): string {
-    // 将所有 [BLANK1]、[BLANK2] 等替换为 _____，但高亮当前空白
-    let result = document;
-    for (let i = 1; i <= 4; i++) {
-      if (i === blankId) {
-        // 当前空白保持高亮标记或使用特殊标记
-        result = result.replace(`[BLANK${i}]`, `_____ `);
-      } else {
-        // 其他空白替换为普通下划线
-        result = result.replace(`[BLANK${i}]`, '_____');
-      }
-    }
-    return result;
+    // 保留原始的[BLANK1], [BLANK2]格式，让前端来处理显示编号
+    // 这样前端可以正确识别每个空白的位置和编号
+    return document;
   }
 
   // 辅助方法：为空白位置生成默认选项（当Gemini API格式不完整时使用）
