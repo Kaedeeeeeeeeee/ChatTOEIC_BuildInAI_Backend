@@ -10,43 +10,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 
-// 🧪 临时测试端点 - 生成题目无需认证 (测试完成后请删除)
-router.post('/test-generate',
-  async (req: Request, res: Response) => {
-    try {
-      console.log('🧪 [临时测试端点] 收到题目生成请求:', req.body);
-
-      // 验证基本请求格式
-      if (!req.body.type || !req.body.difficulty) {
-        return res.status(400).json({
-          success: false,
-          error: '请求格式错误：需要type和difficulty字段'
-        });
-      }
-
-      const questions = await geminiService.generateQuestions(req.body);
-
-      console.log('🧪 [临时测试端点] 题目生成成功，题目数量:', questions.length);
-
-      res.json({
-        success: true,
-        data: {
-          sessionId: uuidv4(),
-          questions
-        },
-        message: '题目生成成功 (临时测试端点)',
-        testMode: true
-      });
-    } catch (error) {
-      console.error('🧪 [临时测试端点] 题目生成失败:', error);
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : '题目生成失败',
-        testMode: true
-      });
-    }
-  }
-);
 
 // 生成练习题目 (需要AI速率限制和权限检查)
 router.post('/generate', 
