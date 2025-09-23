@@ -82,6 +82,7 @@ export const schemas = {
     ).required(),
     difficulty: Joi.string().valid('BEGINNER', 'INTERMEDIATE', 'ADVANCED').required(),
     count: Joi.number().integer().min(1).max(20).required(),
+    timeLimit: Joi.number().integer().min(60).max(3600).optional(),
     topic: Joi.string().optional(),
     customPrompt: Joi.string().max(500).optional(),
     language: Joi.string().valid('en', 'zh', 'ja').optional()
