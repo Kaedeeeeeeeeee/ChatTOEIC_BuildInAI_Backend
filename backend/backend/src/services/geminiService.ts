@@ -294,11 +294,18 @@ ${customPrompt ? `特殊要求：${customPrompt}` : ''}
     // Part 6特殊逻辑：count表示文章数量，每篇文章4题
     const articleCount = count;
 
-    return `你是专业的TOEIC Part 6出题专家。请严格按照JSON格式要求生成${articleCount}篇商务文档，每篇文档包含4道${targetScore}分难度的文本完成题。
+    return `🚨🚨🚨 CRITICAL FORMAT ENFORCEMENT 🚨🚨🚨
 
-**🚨 CRITICAL: 使用全新的文档+题目组合格式 🚨**
+你是专业的TOEIC Part 6出题专家。
 
-**必须按照以下特殊格式生成，不要使用旧的单题格式：**
+**⚠️⚠️⚠️ 绝对禁止返回旧格式！必须严格按照新格式！⚠️⚠️⚠️**
+
+请严格按照JSON格式要求生成${articleCount}篇商务文档，每篇文档包含4道${targetScore}分难度的文本完成题。
+
+**🔥 MANDATORY: 必须使用document+questions数组格式！🔥**
+
+**❌ 禁止格式：{"question": "阅读下面...", "options": [...]}**
+**✅ 必须格式：{"document": "完整文档内容", "questions": [4个题目对象]}**
 
 Part 6特征：
 - 生成${articleCount}个文档对象，每个包含document字段和questions数组
@@ -353,21 +360,26 @@ Part 6特征：
   }
 ]
 
-🚨🚨🚨 CRITICAL FORMAT REQUIREMENTS 🚨🚨🚨
+🚨🚨🚨 FINAL WARNING: CRITICAL FORMAT REQUIREMENTS 🚨🚨🚨
 
-**绝对不要使用旧格式！必须使用新的document+questions格式！**
+**⚠️ 违反格式要求将导致生成失败！⚠️**
 
-重要提示：
+🔥🔥🔥 ABSOLUTE REQUIREMENTS: 🔥🔥🔥
 1. **ONLY返回JSON数组，包含${articleCount}个文档对象，不要任何其他文字**
 2. **🔥 每个对象必须有document字段和questions字段，不要用question字段！🔥**
 3. **document字段：包含带4个_____空白的完整商务文档（不要描述语）**
 4. **questions字段：包含4个题目对象的数组**
 5. **每个题目包含blankNumber、question、options、correctAnswer、explanation**
-6. **❌ 错误格式：{"question": "阅读下面的...", "options": [...]}**
-7. **✅ 正确格式：{"document": "To: Staff...", "questions": [...]}**
-8. 前3个空白是语法/词汇题，第4个空白是句子插入题
 
-🔥 必须严格按照示例格式，包含document字段和questions数组！🔥`;
+**❌❌❌ 绝对禁止的错误格式：**
+{"question": "阅读下面的...", "options": [...]}
+
+**✅✅✅ 唯一正确的格式：**
+{"document": "To: Staff...", "questions": [...]}
+
+**🚫 如果返回错误格式，整个生成过程将失败！🚫**
+
+🔥 现在立即按照示例格式生成，document字段+4个题目对象的questions数组！🔥`;
   }
 
   private buildChatPrompt(message: string, context?: any): string {
