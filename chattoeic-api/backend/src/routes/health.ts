@@ -182,7 +182,7 @@ router.get('/gemini-test', async (req: Request, res: Response) => {
     
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     
     console.log('Model initialized, making test request...');
     const result = await model.generateContent('Say hello');
@@ -240,7 +240,7 @@ async function testGeminiAPI() {
     const startTime = Date.now();
     
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     
     // 发送简单测试请求
     const testResult = await model.generateContent('Please respond with exactly: "API_TEST_SUCCESS"');
