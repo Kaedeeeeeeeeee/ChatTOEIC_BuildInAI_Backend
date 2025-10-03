@@ -471,7 +471,7 @@ app.use('/api/billing', billingRoutes); // Stripe支付系统路由
 app.get('/', (req, res) => {
   res.json({
     name: 'ChatTOEIC API',
-    version: '2.1.0-debug-system',
+    version: '2.2.0-FINAL-CLEAN-NEW-PROMPTS',
     status: 'running',
     timestamp: new Date().toISOString()
   });
@@ -529,7 +529,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 const server = app.listen(PORT, '0.0.0.0', async () => {
   // 使用结构化日志记录启动信息
   log.info('ChatTOEIC API Server Started', {
-    version: '2.1.0-debug-system',
+    version: '2.2.0-FINAL-CLEAN-NEW-PROMPTS',
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
