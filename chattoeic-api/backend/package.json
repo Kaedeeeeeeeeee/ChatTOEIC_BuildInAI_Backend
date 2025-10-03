@@ -86,6 +86,6 @@
   },
   "railway": {
     "buildCommand": "npm install && npx prisma generate --schema=prisma/schema.prisma && npm run build",
-    "startCommand": "npx prisma migrate deploy --schema=prisma/schema.prisma && echo 'Migrations completed, starting server...' && node dist/server.js"
+    "startCommand": "echo 'FORCE REDEPLOY v3.4.0 - timeLimit validation fixed' && npx prisma migrate deploy --schema=prisma/schema.prisma && node dist/server.js"
   }
 }
