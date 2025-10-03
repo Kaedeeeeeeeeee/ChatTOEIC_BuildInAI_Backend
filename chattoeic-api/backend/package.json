@@ -80,6 +80,11 @@
     "vitest": "^2.1.4"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "railway": {
+    "buildCommand": "npm install && npx prisma generate --schema=prisma/schema.prisma && npm run build",
+    "startCommand": "node dist/server.js"
   }
 }
