@@ -93,17 +93,12 @@ class GeminiService {
       const validatedQuestions = this.validateAndFormatQuestions(questions, request);
       console.log('✅ Questions validated successfully');
 
-      // 添加调试信息到响应中
-      const promptPath = request.type.includes('LISTENING')
-        ? `src/prompts/listening/${request.type.toLowerCase()}Prompts.ts`
-        : `src/prompts/reading/${request.type.toLowerCase()}Prompts.ts`;
-
       // 在每个题目中添加调试信息（前端可见）
       const questionsWithDebugInfo = validatedQuestions.map(q => ({
         ...q,
         _debug: {
           promptModule: request.type,
-          promptFile: promptPath,
+          promptFile: promptPath, // 使用前面定义的promptPath
           generatedAt: new Date().toISOString(),
           isNewPromptSystem: true // 明确标记使用了新的提示词系统
         }

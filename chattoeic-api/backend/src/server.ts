@@ -69,7 +69,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 
 // 暂时禁用监控服务
 // const monitoringService = new MonitoringService(prisma);

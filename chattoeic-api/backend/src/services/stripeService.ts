@@ -19,7 +19,7 @@ function getStripe(): Stripe {
     }
     
     stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2023-10-16',
+      apiVersion: '2025-07-30.basil' as any,
     });
     
     console.log('Stripe client initialized successfully');
@@ -154,7 +154,7 @@ export class StripeService {
       // 创建结账会话
       const session = await getStripe().checkout.sessions.create({
         customer: stripeCustomerId,
-        payment_method_types: supportedPaymentMethods, // 订阅模式只支持信用卡
+        payment_method_types: supportedPaymentMethods as any, // 订阅模式只支持信用卡
         line_items: [
           {
             price: plan.stripePriceId,
@@ -327,7 +327,7 @@ export class StripeService {
       }
 
       // 创建或获取Stripe客户
-      let stripeCustomerId = user.stripeCustomerId;
+      let stripeCustomerId = (user as any).stripeCustomerId;
       
       if (!stripeCustomerId) {
         const customer = await getStripe().customers.create({
@@ -361,7 +361,7 @@ export class StripeService {
       // 创建结账会话 - 一次性支付模式
       const session = await getStripe().checkout.sessions.create({
         customer: stripeCustomerId,
-        payment_method_types: paymentMethods, // 支持支付宝等
+        payment_method_types: paymentMethods as any, // 支持支付宝等
         mode: 'payment', // 一次性支付模式，支持支付宝
         line_items: [
           {
@@ -691,8 +691,8 @@ export class StripeService {
         planId: targetPlanId, // 🔧 更新为正确的付费套餐ID
         stripeSubscriptionId: stripeSubscription.id,
         status: 'active', // 强制设为active，忽略Stripe的trialing状态
-        currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+        currentPeriodStart: new Date((stripeSubscription as any).current_period_start * 1000),
+        currentPeriodEnd: new Date((stripeSubscription as any).current_period_end * 1000),
         // 保留原有的试用信息（如果用户之前有过试用）
         // 但不会基于Stripe信息创建新的试用
         trialStart: subscription.trialStart, // 保持原值
@@ -736,7 +736,7 @@ export class StripeService {
    * 处理支付成功事件
    */
   private static async handlePaymentSucceeded(invoice: Stripe.Invoice) {
-    const subscription = await getStripe().subscriptions.retrieve(invoice.subscription as string);
+    const subscription = await getStripe().subscriptions.retrieve((invoice as any).subscription as string);
     const userId = subscription.metadata?.userId;
 
     if (userId) {
@@ -745,8 +745,8 @@ export class StripeService {
         data: {
           status: 'active',
           lastPaymentAt: new Date(),
-          currentPeriodStart: new Date(subscription.current_period_start * 1000),
-          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+          currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
+          currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
         },
       });
 
@@ -758,7 +758,7 @@ export class StripeService {
    * 处理支付失败事件
    */
   private static async handlePaymentFailed(invoice: Stripe.Invoice) {
-    const subscription = await getStripe().subscriptions.retrieve(invoice.subscription as string);
+    const subscription = await getStripe().subscriptions.retrieve((invoice as any).subscription as string);
     const userId = subscription.metadata?.userId;
 
     if (userId) {
@@ -798,8 +798,8 @@ export class StripeService {
         where: { userId },
         data: {
           status: subscription.status,
-          currentPeriodStart: new Date(subscription.current_period_start * 1000),
-          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+          currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
+          currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
           cancelAtPeriodEnd: subscription.cancel_at_period_end,
           updatedAt: new Date(),
         },
