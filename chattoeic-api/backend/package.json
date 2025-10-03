@@ -1,6 +1,6 @@
 {
   "name": "chattoeic-api",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "ChatTOEIC Backend API Server",
   "main": "dist/server.js",
   "type": "module",
