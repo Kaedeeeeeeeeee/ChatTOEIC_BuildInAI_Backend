@@ -11,7 +11,9 @@ router.get('/', async (req: Request, res: Response) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: process.env.npm_package_version || '2.0.0'
+    version: '2.1.0-NEW-PROMPT-SYSTEM',
+    features: ['modular-prompts', 'debug-system', '5-level-difficulty'],
+    promptSystemActive: true
   };
 
   res.status(200).json(healthStatus);
@@ -52,7 +54,7 @@ router.get('/detailed', async (req: Request, res: Response) => {
       status: skipDbCheck ? 'healthy' : (dbStatus.connected ? 'healthy' : 'unhealthy'),
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      version: process.env.npm_package_version || '2.0.0',
+      version: '2.1.0-NEW-PROMPT-SYSTEM',
       database: dbStatus,
       memory: {
         used: Math.round(memUsage.heapUsed / 1024 / 1024), // MB
@@ -85,7 +87,7 @@ router.get('/detailed', async (req: Request, res: Response) => {
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      version: process.env.npm_package_version || '2.0.0',
+      version: '2.1.0-NEW-PROMPT-SYSTEM',
       error: 'Health check failed'
     });
   }
