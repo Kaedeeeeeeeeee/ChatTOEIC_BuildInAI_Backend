@@ -1,0 +1,28 @@
+🔥 NUCLEAR REDEPLOY VERSION 3.0.0 - Oct 3, 2025 21:50 JST
+
+CRITICAL: Railway is COMPLETELY IGNORING our updates!
+
+Evidence:
+- Local code: version 3.0.0-NUCLEAR-REDEPLOY
+- Railway logs: version 2.0.0 (OLD!)
+- timeLimit validation: STILL FAILING
+- Database errors: vocabulary_items.sourceType missing
+
+DEPLOYED FIXES THAT RAILWAY IS IGNORING:
+1. ✅ timeLimit field added to validation.ts line 93
+2. ✅ production-db-fix.js created with all missing columns
+3. ✅ emergency-db-fix.js created for server startup
+4. ✅ railway.json modified to run database fix first
+5. ✅ package.json npm start modified to run fix
+
+THIS FILE IS VERSION 3.0.0 - IF RAILWAY STILL SHOWS 2.0.0,
+THE DEPLOYMENT SYSTEM IS COMPLETELY BROKEN!
+
+Manual intervention required:
+1. Check Railway build logs for errors
+2. Run emergency-sql-fix.sql manually in Railway database console
+3. Restart Railway service manually
+
+Timestamp: 2025-10-03T21:50:00+09:00
+Commit SHA: Will be generated after this commit
+This is the FINAL attempt before manual intervention!

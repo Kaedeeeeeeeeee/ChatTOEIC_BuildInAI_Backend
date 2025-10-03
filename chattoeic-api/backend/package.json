@@ -1,6 +1,6 @@
 {
   "name": "chattoeic-api",
-  "version": "2.4.0-PRODUCTION-DB-FIX",
+  "version": "3.0.0-NUCLEAR-REDEPLOY",
   "description": "ChatTOEIC Backend API Server",
   "main": "dist/server.js",
   "type": "module",
@@ -11,7 +11,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "npx prisma generate --schema=prisma/schema.prisma && npx tsc --noEmitOnError false || true && mkdir -p dist && cp -r src/* dist/ 2>/dev/null || true",
     "build:render": "./render-build.sh",
-    "start": "./start.sh",
+    "start": "node production-db-fix.js && ./start.sh",
     "start:bypass": "node bypass-all-migrations.js",
     "start:simple": "node simple-db-fix.js && node dist/server.js",
     "start:server": "node dist/server.js",
