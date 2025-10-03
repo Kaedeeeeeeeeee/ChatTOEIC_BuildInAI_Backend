@@ -1,6 +1,6 @@
 {
   "name": "chattoeic-api",
-  "version": "3.3.0-FORCE-REBUILD-TYPESCRIPT-FIXED",
+  "version": "3.4.0-TIMELIMIT-VALIDATION-FIXED",
   "description": "ChatTOEIC Backend API Server",
   "main": "dist/server.js",
   "type": "module",

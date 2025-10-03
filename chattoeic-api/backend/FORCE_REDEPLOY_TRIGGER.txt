@@ -1,0 +1,20 @@
+🚀 FORCE REDEPLOY TRIGGER - Oct 3, 2025 22:40 JST
+
+CRITICAL: Railway is running version 2.0.0 but we need 3.4.0-TIMELIMIT-VALIDATION-FIXED
+
+ISSUE: timeLimit validation error still occurs
+ERROR: "timeLimit" is not allowed
+
+FIX APPLIED: src/middleware/validation.ts line 93
+timeLimit: Joi.number().integer().min(0).optional()
+
+DEPLOYMENT STATUS: NEEDS FORCED REBUILD
+
+This file forces Railway to detect changes and redeploy the latest version.
+
+Expected result after deployment:
+- Version should show 3.4.0-TIMELIMIT-VALIDATION-FIXED
+- timeLimit parameter should be accepted
+- TOEIC question generation should work
+
+Timestamp: 2025-10-03T22:40:00+09:00
