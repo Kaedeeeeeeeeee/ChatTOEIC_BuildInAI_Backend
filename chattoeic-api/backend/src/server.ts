@@ -23,6 +23,7 @@ import emergencyFixRoutes from './routes/emergency-fix.js'; // 紧急修复路�
 import debugRoutes from './routes/debug.js'; // 部署调试路由
 import adminRoutes from './routes/admin.js'; // 启用管理员功能
 import databaseFixRoutes from './routes/database-fix.js'; // 数据库修复路由
+import emergencyRoutes from './routes/emergency.js'; // Railway部署修复路由
 // import migrateRoutes from './routes/migrate.js'; // 迁移完成，临时注释掉
 
 // 导入中间件
@@ -156,6 +157,7 @@ app.use(trackPageVisit);
 // API路由
 app.use('/api/health', healthRoutes);
 app.use('/api/debug', debugRoutes); // 部署调试路由
+app.use('/api/emergency', emergencyRoutes); // Railway部署修复路由
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/users', usersRoutes);
