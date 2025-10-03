@@ -1,0 +1,16 @@
+🚨 EMERGENCY REDEPLOY TRIGGER - Oct 3, 2025 21:40 JST
+
+Railway deployment issue:
+- Local version: 2.3.0-EMERGENCY-RESTORE
+- Railway version: 2.0.0 (NOT UPDATED!)
+- Database fix not deployed
+
+Critical problems:
+1. vocabulary_items.context column missing in production DB
+2. timeLimit validation error (should be fixed but not deployed)
+3. Railway not recognizing latest commits
+
+This file forces Railway to detect changes and redeploy latest code.
+
+Timestamp: 2025-10-03T21:40:00+09:00
+Commit: abdb9db2 (should include emergency database fix)
