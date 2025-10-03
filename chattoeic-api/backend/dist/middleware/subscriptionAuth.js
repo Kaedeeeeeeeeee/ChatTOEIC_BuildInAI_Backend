@@ -49,13 +49,13 @@ export async function getUserSubscriptionInfo(userId) {
         // 如果没有订阅，返回免费版权限（新的权限体系）
         if (!subscription) {
             return {
-                hasPermission: false,
+                hasPermission: true, // ✅ 免费用户也有权限
                 subscription: null,
                 permissions: {
-                    aiPractice: false, // ❌ 无AI练习生成
-                    aiChat: false, // ❌ 无AI对话
-                    vocabulary: true, // ✅ 生词本功能  
-                    exportData: false, // ❌ 不能导出
+                    aiPractice: true, // ✅ 免费用户也可以使用AI练习生成
+                    aiChat: true, // ✅ 免费用户也可以使用AI对话
+                    vocabulary: true, // ✅ 生词本功能
+                    exportData: true, // ✅ 免费用户也可以导出数据
                     viewMistakes: true, // ✅ 无限复习功能
                 },
                 trialAvailable: true, // 新用户可以试用
@@ -111,10 +111,10 @@ export async function getUserSubscriptionInfo(userId) {
                     currency: 'jpy',
                     interval: 'month',
                     features: {
-                        aiPractice: false,
-                        aiChat: false,
+                        aiPractice: true, // ✅ 免费套餐也支持AI练习
+                        aiChat: true, // ✅ 免费套餐也支持AI对话
                         vocabulary: true,
-                        exportData: false,
+                        exportData: true, // ✅ 免费套餐也支持数据导出
                         viewMistakes: true
                     },
                     dailyPracticeLimit: null,
@@ -125,13 +125,13 @@ export async function getUserSubscriptionInfo(userId) {
             else {
                 // 未知套餐，返回默认免费权限
                 return {
-                    hasPermission: false,
+                    hasPermission: true, // ✅ 未知套餐也有权限
                     subscription: null,
                     permissions: {
-                        aiPractice: false,
-                        aiChat: false,
+                        aiPractice: true, // ✅ 未知套餐也支持AI练习
+                        aiChat: true, // ✅ 未知套餐也支持AI对话
                         vocabulary: true,
-                        exportData: false,
+                        exportData: true, // ✅ 未知套餐也支持数据导出
                         viewMistakes: true,
                     },
                     trialAvailable: false, // 未知订阅状态，不允许试用
@@ -148,14 +148,14 @@ export async function getUserSubscriptionInfo(userId) {
         const isReallyExpired = isExpired || isTrialExpired;
         if (!isActive || isReallyExpired) {
             return {
-                hasPermission: false,
+                hasPermission: true, // ✅ 过期用户也有权限
                 subscription: { ...subscription, plan: planData },
                 reason: isReallyExpired ? 'SUBSCRIPTION_EXPIRED' : 'SUBSCRIPTION_INACTIVE',
                 permissions: {
-                    aiPractice: false, // ❌ 无AI练习生成
-                    aiChat: false, // ❌ 无AI对话
-                    vocabulary: true, // ✅ 生词本功能  
-                    exportData: false, // ❌ 不能导出
+                    aiPractice: true, // ✅ 过期用户也可以使用AI练习生成
+                    aiChat: true, // ✅ 过期用户也可以使用AI对话
+                    vocabulary: true, // ✅ 生词本功能
+                    exportData: true, // ✅ 过期用户也可以导出数据
                     viewMistakes: true, // ✅ 无限复习功能
                 },
                 trialAvailable: false,
@@ -175,14 +175,14 @@ export async function getUserSubscriptionInfo(userId) {
                     now: now.toISOString()
                 });
                 return {
-                    hasPermission: false,
+                    hasPermission: true, // ✅ 试用过期用户也有权限
                     subscription: { ...subscription, plan: planData },
                     reason: 'TRIAL_EXPIRED',
                     permissions: {
-                        aiPractice: false, // ❌ 试用过期无AI练习
-                        aiChat: false, // ❌ 试用过期无AI对话
-                        vocabulary: true, // ✅ 生词本功能  
-                        exportData: false, // ❌ 不能导出
+                        aiPractice: true, // ✅ 试用过期也可以使用AI练习
+                        aiChat: true, // ✅ 试用过期也可以使用AI对话
+                        vocabulary: true, // ✅ 生词本功能
+                        exportData: true, // ✅ 试用过期也可以导出数据
                         viewMistakes: true, // ✅ 无限复习功能
                     },
                     trialAvailable: false,

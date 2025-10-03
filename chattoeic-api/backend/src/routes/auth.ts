@@ -832,7 +832,8 @@ router.get('/google/callback', oauthRateLimit, async (req: Request, res: Respons
     const payload: JWTPayload = {
       userId: user.id,
       email: user.email,
-      name: user.name || ''
+      name: user.name || '',
+      role: 'user' // 默认角色
     };
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '24h' });

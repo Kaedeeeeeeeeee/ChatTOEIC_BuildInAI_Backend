@@ -43,8 +43,19 @@ class GeminiService {
     }
 
     try {
+      // 获取对应的提示词函数
       const promptFunction = getQuestionPromptFunction(request.type);
+
+      // 构建提示词文件路径用于日志显示
+      const promptPath = request.type.includes('LISTENING')
+        ? `src/prompts/listening/${request.type.toLowerCase()}Prompts.ts`
+        : `src/prompts/reading/${request.type.toLowerCase()}Prompts.ts`;
+
+      console.log(`📝 使用提示词模块: ${request.type} (文件: ${promptPath})`);
+
+      // 生成完整提示词
       const prompt = promptFunction(request.difficulty, request.count, request.topic, request.customPrompt);
+      console.log(`📋 提示词生成完成 - 类型:${request.type}, 难度:${request.difficulty}, 题目数:${request.count}`);
       console.log('📝 Generated prompt length:', prompt.length);
       
       console.log('🚀 Calling Gemini API...');
@@ -81,8 +92,26 @@ class GeminiService {
       // 验证和格式化题目
       const validatedQuestions = this.validateAndFormatQuestions(questions, request);
       console.log('✅ Questions validated successfully');
-      
-      return validatedQuestions;
+
+      // 在每个题目中添加调试信息（前端可见）
+      const questionsWithDebugInfo = validatedQuestions.map(q => ({
+        ...q,
+        _debug: {
+          promptModule: request.type,
+          promptFile: promptPath, // 使用前面定义的promptPath
+          generatedAt: new Date().toISOString(),
+          isNewPromptSystem: true // 明确标记使用了新的提示词系统
+        }
+      }));
+
+      console.log('🎉 ===== 新提示词系统验证 =====');
+      console.log(`✨ 已使用模块化提示词系统`);
+      console.log(`📄 提示词文件: ${promptPath}`);
+      console.log(`🏷️  题目类型: ${request.type}`);
+      console.log(`📊 生成题目数: ${questionsWithDebugInfo.length}`);
+      console.log('=====================================');
+
+      return questionsWithDebugInfo;
     } catch (error: any) {
       console.error('❌ Gemini question generation failed:', error);
       console.error('Error details:', {

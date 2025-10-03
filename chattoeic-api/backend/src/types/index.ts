@@ -32,6 +32,7 @@ export interface JWTPayload {
   email: string;
   role: string;
   name?: string;
+  username?: string;
   iat?: number;
   exp?: number;
 }
@@ -99,6 +100,8 @@ export interface HealthStatus {
   timestamp: string;
   uptime: number;
   version: string;
+  features?: string[];
+  promptSystemActive?: boolean;
 }
 
 export interface DetailedHealthStatus extends HealthStatus {
@@ -111,7 +114,7 @@ export interface DetailedHealthStatus extends HealthStatus {
     free: number;
     total: number;
   };
-  services: {
+  services?: {
     gemini: {
       available: boolean;
       rateLimit?: {
@@ -120,4 +123,5 @@ export interface DetailedHealthStatus extends HealthStatus {
       };
     };
   };
+  environment?: any;
 }

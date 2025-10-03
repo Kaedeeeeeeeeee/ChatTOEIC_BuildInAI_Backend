@@ -8,13 +8,13 @@ export const prisma = globalForPrisma.prisma ??
                 url: process.env.DATABASE_URL || 'postgresql://user:password@localhost:5432/chattoeic',
             },
         },
-        // 添加连接池配置优化
-        __internal: {
-            engine: {
-                connectTimeout: 10000, // 10秒连接超时
-                poolTimeout: 10000, // 10秒池超时
-            },
-        },
+        // 添加连接池配置优化 (临时禁用以避免类型错误)
+        // __internal: {
+        //   engine: {
+        //     connectTimeout: 10000, // 10秒连接超时
+        //     poolTimeout: 10000, // 10秒池超时
+        //   },
+        // },
     });
 if (process.env.NODE_ENV !== 'production')
     globalForPrisma.prisma = prisma;

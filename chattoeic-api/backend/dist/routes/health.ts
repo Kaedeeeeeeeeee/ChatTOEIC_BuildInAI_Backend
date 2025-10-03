@@ -11,7 +11,9 @@ router.get('/', async (req: Request, res: Response) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: process.env.npm_package_version || '2.0.0'
+    version: '2.2.0-FINAL-CLEAN-NEW-PROMPTS',
+    features: ['modular-prompts', 'debug-system', '5-level-difficulty'],
+    promptSystemActive: true
   };
 
   res.status(200).json(healthStatus);
@@ -52,7 +54,7 @@ router.get('/detailed', async (req: Request, res: Response) => {
       status: skipDbCheck ? 'healthy' : (dbStatus.connected ? 'healthy' : 'unhealthy'),
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      version: process.env.npm_package_version || '2.0.0',
+      version: '2.2.0-FINAL-CLEAN-NEW-PROMPTS',
       database: dbStatus,
       memory: {
         used: Math.round(memUsage.heapUsed / 1024 / 1024), // MB
@@ -85,7 +87,7 @@ router.get('/detailed', async (req: Request, res: Response) => {
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      version: process.env.npm_package_version || '2.0.0',
+      version: '2.2.0-FINAL-CLEAN-NEW-PROMPTS',
       error: 'Health check failed'
     });
   }
@@ -273,5 +275,25 @@ async function testGeminiAPI() {
 
   return result;
 }
+
+// 新提示词系统验证端点
+router.get('/prompt-system-check', async (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    message: '新提示词系统已激活！',
+    version: '2.2.0-FINAL-CLEAN-NEW-PROMPTS',
+    features: {
+      'modular-prompts': true,
+      'debug-system': true,
+      '5-level-difficulty': true
+    },
+    promptFiles: [
+      'src/prompts/reading/reading_part5Prompts.ts',
+      'src/prompts/reading/reading_part6Prompts.ts',
+      'src/prompts/reading/reading_part7Prompts.ts'
+    ],
+    timestamp: new Date().toISOString()
+  });
+});
 
 export default router;

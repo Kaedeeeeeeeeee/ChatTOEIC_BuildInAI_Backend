@@ -15,7 +15,7 @@ function getStripe() {
             throw new Error('Stripe configuration missing: STRIPE_SECRET_KEY is required');
         }
         stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-            apiVersion: '2023-10-16',
+            apiVersion: '2025-07-30.basil',
         });
         console.log('Stripe client initialized successfully');
     }

@@ -3,6 +3,9 @@
  * 这是设计文档，不是实际代码文件
  */
 
+import { Response, NextFunction } from 'express';
+import { AuthenticatedRequest } from '../types/index.js';
+
 // ===============================
 // 1. 订阅套餐管理 API
 // ===============================

@@ -20,8 +20,10 @@ import dashboardStreamRoutes from './routes/dashboard-stream.js';
 import databaseRoutes from './routes/database.js';
 import dbMigrateRoutes from './routes/db-migrate.js'; // 紧急数据库迁移路由
 import emergencyFixRoutes from './routes/emergency-fix.js'; // 紧急修复路由
+import debugRoutes from './routes/debug.js'; // 部署调试路由
 import adminRoutes from './routes/admin.js'; // 启用管理员功能
 import databaseFixRoutes from './routes/database-fix.js'; // 数据库修复路由
+import emergencyRoutes from './routes/emergency.js'; // Railway部署修复路由
 // import migrateRoutes from './routes/migrate.js'; // 迁移完成，临时注释掉
 
 // 导入中间件
@@ -67,7 +69,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 
 // 暂时禁用监控服务
 // const monitoringService = new MonitoringService(prisma);
@@ -154,6 +156,8 @@ app.use(trackPageVisit);
 
 // API路由
 app.use('/api/health', healthRoutes);
+app.use('/api/debug', debugRoutes); // 部署调试路由
+app.use('/api/emergency', emergencyRoutes); // Railway部署修复路由
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/users', usersRoutes);
@@ -471,7 +475,7 @@ app.use('/api/billing', billingRoutes); // Stripe支付系统路由
 app.get('/', (req, res) => {
   res.json({
     name: 'ChatTOEIC API',
-    version: '2.0.0',
+    version: '2.2.0-FINAL-CLEAN-NEW-PROMPTS',
     status: 'running',
     timestamp: new Date().toISOString()
   });
@@ -529,13 +533,15 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 const server = app.listen(PORT, '0.0.0.0', async () => {
   // 使用结构化日志记录启动信息
   log.info('ChatTOEIC API Server Started', {
-    version: '2.0.0',
+    version: '2.2.0-FINAL-CLEAN-NEW-PROMPTS',
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    features: ['modular-prompts', 'debug-system', '5-level-difficulty']
   });
 
-  console.log(`🚀 ChatTOEIC API v2.0.0 服务器启动成功`);
+  console.log(`🚀 ChatTOEIC API v2.1.0-debug-system 服务器启动成功`);
+  console.log(`✨ 新功能: 模块化提示词系统 + 调试验证`);
   console.log(`📡 服务地址: http://localhost:${PORT}`);
   console.log(`🌍 环境: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🏥 健康检查: http://localhost:${PORT}/api/health`);
