@@ -475,7 +475,7 @@ app.use('/api/billing', billingRoutes); // Stripe支付系统路由
 app.get('/', (req, res) => {
   res.json({
     name: 'ChatTOEIC API',
-    version: '2.2.0-FINAL-CLEAN-NEW-PROMPTS',
+    version: '2.3.0-EMERGENCY-RESTORE',
     status: 'running',
     timestamp: new Date().toISOString()
   });
@@ -531,16 +531,25 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // 启动服务器 - 绑定到所有接口
 const server = app.listen(PORT, '0.0.0.0', async () => {
+  // 应急数据库修复 - 确保vocabulary_items.context列存在
+  try {
+    console.log('🔧 Running emergency database fix...');
+    const { emergencyDatabaseFix } = await import('../emergency-db-fix.js');
+    await emergencyDatabaseFix();
+  } catch (error) {
+    console.warn('⚠️ Emergency database fix failed, continuing startup:', error.message);
+  }
+
   // 使用结构化日志记录启动信息
   log.info('ChatTOEIC API Server Started', {
-    version: '2.2.0-FINAL-CLEAN-NEW-PROMPTS',
+    version: '2.3.0-EMERGENCY-RESTORE',
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
     features: ['modular-prompts', 'debug-system', '5-level-difficulty']
   });
 
-  console.log(`🚀 ChatTOEIC API v2.1.0-debug-system 服务器启动成功`);
+  console.log(`🚀 ChatTOEIC API v2.3.0-EMERGENCY-RESTORE 服务器启动成功`);
   console.log(`✨ 新功能: 模块化提示词系统 + 调试验证`);
   console.log(`📡 服务地址: http://localhost:${PORT}`);
   console.log(`🌍 环境: ${process.env.NODE_ENV || 'development'}`);
