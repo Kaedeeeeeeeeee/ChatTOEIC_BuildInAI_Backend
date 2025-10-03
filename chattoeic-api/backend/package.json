@@ -1,6 +1,6 @@
 {
   "name": "chattoeic-api",
-  "version": "3.0.0-NUCLEAR-REDEPLOY",
+  "version": "3.1.0-RAILWAY-STARTCOMMAND-FIX",
   "description": "ChatTOEIC Backend API Server",
   "main": "dist/server.js",
   "type": "module",
@@ -85,6 +85,6 @@
   },
   "railway": {
     "buildCommand": "npm install && npx prisma generate --schema=prisma/schema.prisma && npm run build",
-    "startCommand": "node dist/server.js"
+    "startCommand": "npx prisma migrate deploy --schema=prisma/schema.prisma && node dist/server.js"
   }
 }
