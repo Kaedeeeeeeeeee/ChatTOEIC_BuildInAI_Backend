@@ -1,6 +1,6 @@
 {
   "name": "chattoeic-api",
-  "version": "3.1.0-RAILWAY-STARTCOMMAND-FIX",
+  "version": "3.2.0-DATABASE-FIXED-TESTING",
   "description": "ChatTOEIC Backend API Server",
   "main": "dist/server.js",
   "type": "module",
@@ -52,6 +52,7 @@
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "node-fetch": "^3.3.2",
     "nodemailer": "^6.9.7",
     "pg": "^8.16.3",
     "response-time": "^2.3.2",
@@ -85,6 +86,6 @@
   },
   "railway": {
     "buildCommand": "npm install && npx prisma generate --schema=prisma/schema.prisma && npm run build",
-    "startCommand": "npx prisma migrate deploy --schema=prisma/schema.prisma && node dist/server.js"
+    "startCommand": "npx prisma migrate deploy --schema=prisma/schema.prisma && echo 'Migrations completed, starting server...' && node dist/server.js"
   }
 }
