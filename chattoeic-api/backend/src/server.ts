@@ -20,6 +20,7 @@ import dashboardStreamRoutes from './routes/dashboard-stream.js';
 import databaseRoutes from './routes/database.js';
 import dbMigrateRoutes from './routes/db-migrate.js'; // 紧急数据库迁移路由
 import emergencyFixRoutes from './routes/emergency-fix.js'; // 紧急修复路由
+import debugRoutes from './routes/debug.js'; // 部署调试路由
 import adminRoutes from './routes/admin.js'; // 启用管理员功能
 import databaseFixRoutes from './routes/database-fix.js'; // 数据库修复路由
 // import migrateRoutes from './routes/migrate.js'; // 迁移完成，临时注释掉
@@ -154,6 +155,7 @@ app.use(trackPageVisit);
 
 // API路由
 app.use('/api/health', healthRoutes);
+app.use('/api/debug', debugRoutes); // 部署调试路由
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/users', usersRoutes);
