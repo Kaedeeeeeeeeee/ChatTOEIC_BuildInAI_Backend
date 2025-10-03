@@ -276,4 +276,24 @@ async function testGeminiAPI() {
   return result;
 }
 
+// 新提示词系统验证端点
+router.get('/prompt-system-check', async (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    message: '新提示词系统已激活！',
+    version: '2.1.0-NEW-PROMPT-SYSTEM',
+    features: {
+      'modular-prompts': true,
+      'debug-system': true,
+      '5-level-difficulty': true
+    },
+    promptFiles: [
+      'src/prompts/reading/reading_part5Prompts.ts',
+      'src/prompts/reading/reading_part6Prompts.ts',
+      'src/prompts/reading/reading_part7Prompts.ts'
+    ],
+    timestamp: new Date().toISOString()
+  });
+});
+
 export default router;
