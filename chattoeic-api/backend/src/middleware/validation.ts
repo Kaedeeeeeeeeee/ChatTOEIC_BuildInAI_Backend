@@ -89,7 +89,8 @@ export const schemas = {
     count: Joi.number().integer().min(1).max(20).required(),
     topic: Joi.string().optional(),
     customPrompt: Joi.string().max(500).optional(),
-    language: Joi.string().valid('en', 'zh', 'ja').optional()
+    language: Joi.string().valid('en', 'zh', 'ja').optional(),
+    timeLimit: Joi.number().integer().min(0).optional() // 允许timeLimit字段
   }),
 
   // 练习提交
