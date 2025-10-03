@@ -1,6 +1,6 @@
 {
   "name": "chattoeic-api",
-  "version": "2.2.0-FINAL-CLEAN",
+  "version": "3.0.0-NEW-RAILWAY-DEPLOYMENT",
   "description": "ChatTOEIC Backend API Server",
   "main": "dist/server.js",
   "type": "module",
@@ -9,23 +9,15 @@
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "npx prisma generate --schema=prisma/schema.prisma && npx tsc --noEmitOnError false || true && mkdir -p dist && cp -r src/* dist/ 2>/dev/null || true",
-    "build:render": "./render-build.sh",
-    "start": "./start.sh",
-    "start:bypass": "node bypass-all-migrations.js",
-    "start:simple": "node simple-db-fix.js && node dist/server.js",
-    "start:server": "node dist/server.js",
+    "build": "npx prisma generate --schema=prisma/schema.prisma && npx tsc",
+    "start": "npx prisma migrate deploy --schema=prisma/schema.prisma && node dist/server.js",
     "migration:generate": "npx prisma migrate dev --schema=prisma/schema.prisma",
     "migration:deploy": "npx prisma migrate deploy --schema=prisma/schema.prisma",
-    "migration:prod": "node migrate-production.js",
-    "migration:render": "node deploy-db-migration.js",
     "db:generate": "npx prisma generate --schema=prisma/schema.prisma",
     "db:seed": "tsx src/scripts/seed.ts",
     "admin:create": "tsx src/scripts/createAdmin.ts",
-    "data:fix-login-dates": "tsx src/scripts/fixUserLoginDates.ts",
     "lint": "eslint src --ext .ts",
-    "test": "vitest",
-    "test:coverage": "vitest --coverage"
+    "test": "vitest"
   },
   "keywords": [
     "toeic",
@@ -84,7 +76,7 @@
     "npm": ">=8.0.0"
   },
   "railway": {
-    "buildCommand": "npm install && npx prisma generate --schema=prisma/schema.prisma && npm run build",
-    "startCommand": "node dist/server.js"
+    "buildCommand": "npm ci && npx prisma generate --schema=prisma/schema.prisma && npm run build",
+    "startCommand": "npm start"
   }
 }
