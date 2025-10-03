@@ -109,15 +109,15 @@ router.get('/status', authenticateToken, requireAdmin, async (req: Request, res:
     };
     
     // 获取表统计
-    let stats = {};
+    let stats: any = {};
     if (tablesStatus.users) {
       const userCount = await prisma.user.count();
       stats.users = { count: userCount };
     }
-    
+
     if (tablesStatus.tokenBlacklist) {
       try {
-        const blacklistCount = await prisma.$queryRaw`SELECT COUNT(*) as count FROM "token_blacklist"`;
+        const blacklistCount = await prisma.$queryRaw`SELECT COUNT(*) as count FROM "token_blacklist"` as Array<{count: bigint}>;
         stats.tokenBlacklist = { count: Number(blacklistCount[0]?.count || 0) };
       } catch (error) {
         stats.tokenBlacklist = { error: 'Failed to query' };

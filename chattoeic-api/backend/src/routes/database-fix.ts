@@ -397,15 +397,15 @@ router.post('/fix-schema', authenticateToken, async (req: Request, res: Response
     try {
       // 检查表是否存在stripePaymentId列
       const columns = await prisma.$queryRaw`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'payment_transactions' 
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'payment_transactions'
         AND table_schema = 'public'
-      `;
-      
-      console.log('   现有列:', columns.map((col: any) => col.column_name));
-      
-      const hasStripePaymentId = columns.some((col: any) => col.column_name === 'stripePaymentId');
+      ` as Array<{column_name: string}>;
+
+      console.log('   现有列:', columns.map((col) => col.column_name));
+
+      const hasStripePaymentId = columns.some((col) => col.column_name === 'stripePaymentId');
       
       if (!hasStripePaymentId) {
         console.log('   缺少stripePaymentId列，正在添加...');
