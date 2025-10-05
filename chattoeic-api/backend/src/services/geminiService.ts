@@ -199,7 +199,70 @@ ${context ? `出现语境：${context}` : ''}
 
   private buildQuestionPrompt(request: QuestionGenerationRequest): string {
     const { type, difficulty, count, topic, customPrompt } = request;
-    
+
+    // Part 6 特殊处理：段落填空题
+    if (type === 'READING_PART6') {
+      return `
+作为TOEIC Part 6 段落填空题专家，请生成${count}篇商务邮件/通知/文章，每篇包含4个空格需要填空。
+
+Part 6 要求：
+- 难度：${this.getDifficultyDescription(difficulty)}
+- 每篇文章必须包含**4个空格**
+- 文章主题：商务邮件、公司通知、产品介绍、会议通知等职场相关内容
+- 文章长度：150-200词
+- 空格类型：包括语法题(2个)和语义题(2个)
+
+返回格式（JSON数组）：
+[
+  {
+    "id": "part6_1",
+    "type": "READING_PART6",
+    "difficulty": "${difficulty}",
+    "passage": "完整文章内容，用 __1__, __2__, __3__, __4__ 标记空格位置",
+    "questions": [
+      {
+        "questionNumber": 1,
+        "question": "Choose the best option for blank __1__",
+        "options": ["选项A", "选项B", "选项C", "选项D"],
+        "correctAnswer": 0,
+        "explanation": "解释为什么这个答案正确"
+      },
+      {
+        "questionNumber": 2,
+        "question": "Choose the best option for blank __2__",
+        "options": ["选项A", "选项B", "选项C", "选项D"],
+        "correctAnswer": 1,
+        "explanation": "解释"
+      },
+      {
+        "questionNumber": 3,
+        "question": "Choose the best option for blank __3__",
+        "options": ["选项A", "选项B", "选项C", "选项D"],
+        "correctAnswer": 2,
+        "explanation": "解释"
+      },
+      {
+        "questionNumber": 4,
+        "question": "Choose the best option for blank __4__",
+        "options": ["选项A", "选项B", "选项C", "选项D"],
+        "correctAnswer": 3,
+        "explanation": "解释"
+      }
+    ]
+  }
+]
+
+${topic ? `文章主题：${topic}` : ''}
+${customPrompt ? `特殊要求：${customPrompt}` : ''}
+
+**重要：**
+1. 每篇文章必须有4个空格
+2. 正确答案要分布在A、B、C、D中（尽量均匀）
+3. 直接返回JSON数组，不要Markdown包装
+      `;
+    }
+
+    // 其他题型的通用 prompt
     let prompt = `
 作为TOEIC题目生成专家，请生成${count}道${this.getTypeDescription(type)}题目。
 
@@ -212,8 +275,8 @@ ${context ? `出现语境：${context}` : ''}
     "type": "${type}",
     "difficulty": "${difficulty}",
     "question": "题目内容",
-    "options": ["选项A", "选项B", "选项C", "选项D"], // 如果适用
-    "correctAnswer": [0、1、2或3 - 确保答案均匀分布在四个选项中], // 正确答案索引：0=A, 1=B, 2=C, 3=D
+    "options": ["选项A", "选项B", "选项C", "选项D"],
+    "correctAnswer": [0、1、2或3], // 正确答案索引：0=A, 1=B, 2=C, 3=D
     "explanation": "详细解释",
     "passage": "阅读文章内容" // 仅阅读题需要
   }
@@ -223,9 +286,9 @@ ${customPrompt ? `特殊要求：${customPrompt}` : ''}
 
 请确保题目符合TOEIC考试标准，答案解释清晰准确。
 
-**重要提醒：请将正确答案随机分布在A、B、C、D四个选项中，避免大部分答案都是同一选项的情况。目标是在A、B、C、D选项中大致均匀分布正确答案。**
+**重要提醒：请将正确答案随机分布在A、B、C、D四个选项中。**
 
-**重要：请直接返回JSON数组，不要使用Markdown代码块包装，不要添加任何其他文本。**
+**重要：请直接返回JSON数组，不要使用Markdown代码块包装。**
     `;
 
     return prompt;
