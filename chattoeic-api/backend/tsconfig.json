@@ -28,6 +28,14 @@
     "node_modules",
     "dist",
     "**/*.test.ts",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "src/routes/billing-api-design.ts",
+    "src/routes/billing.ts",
+    "src/routes/database-fix.ts",
+    "src/routes/database.ts",
+    "src/scripts/fixCategories.ts",
+    "src/server-simple.ts",
+    "src/services/stripeService.ts",
+    "src/utils/database.ts"
   ]
 }
