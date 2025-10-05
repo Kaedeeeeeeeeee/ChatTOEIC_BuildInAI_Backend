@@ -669,7 +669,7 @@ router.get('/google', oauthRateLimit, (req: Request, res: Response) => {
       access_type: 'offline',
       scope: scopes,
       state: 'security_token',
-      redirect_uri: `https://chattoeic-api.onrender.com/api/auth/google/callback`
+      redirect_uri: `https://chattoeic-api-production.up.railway.app/api/auth/google/callback`
     });
 
     res.redirect(authUrl);
@@ -702,12 +702,12 @@ router.get('/google/callback', oauthRateLimit, async (req: Request, res: Respons
 
     // 使用授权码获取令牌
     console.log('准备交换授权码获取token...');
-    console.log('使用的redirect_uri:', 'https://chattoeic-api.onrender.com/api/auth/google/callback');
+    console.log('使用的redirect_uri:', 'https://chattoeic-api-production.up.railway.app/api/auth/google/callback');
     console.log('GOOGLE_CLIENT_SECRET存在:', !!process.env.GOOGLE_CLIENT_SECRET);
-    
+
     const { tokens: googleTokens } = await googleClient.getToken({
       code: code as string,
-      redirect_uri: `https://chattoeic-api.onrender.com/api/auth/google/callback`
+      redirect_uri: `https://chattoeic-api-production.up.railway.app/api/auth/google/callback`
     });
     
     console.log('成功获取Google tokens');
