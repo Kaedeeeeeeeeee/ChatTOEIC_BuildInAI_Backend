@@ -1,12 +1,13 @@
 {
   "name": "chattoeic-repo",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "description": "ChatTOEIC Repository Root",
   "scripts": {
-    "build": "cd backend/backend && npm install && npm run build",
-    "start": "cd backend/backend && npm start"
+    "build": "cd chattoeic-api/backend && npm install && npm run build",
+    "start": "cd chattoeic-api/backend && npm start"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }
