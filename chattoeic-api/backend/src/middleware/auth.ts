@@ -31,8 +31,8 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     console.log('🧪 使用模拟管理员令牌进行认证');
     req.user = {
       userId: 'be2d0b23-b625-47ab-b406-db5778c58471',
-      email: 'admin@chattoeic.com', 
-      username: '管理员',
+      email: 'admin@chattoeic.com',
+      name: '管理员',
       role: 'ADMIN',
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + 3600 // 1小时后过期

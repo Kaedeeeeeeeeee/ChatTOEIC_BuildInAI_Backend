@@ -372,7 +372,7 @@ router.get('/export',
         prisma.user.findUnique({
           where: { id: userId },
           select: {
-            username: true,
+            name: true,
             email: true,
             createdAt: true
           }

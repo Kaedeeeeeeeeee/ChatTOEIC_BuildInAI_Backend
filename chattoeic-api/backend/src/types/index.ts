@@ -37,12 +37,7 @@ export interface JWTPayload {
 }
 
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    name?: string;
-    role: string;
-  };
+  user?: JWTPayload;
   body: any;
   query: any;
   params: any;
@@ -101,6 +96,7 @@ export interface HealthStatus {
 }
 
 export interface DetailedHealthStatus extends HealthStatus {
+  environment?: string;
   database: {
     connected: boolean;
     responseTime?: number;
