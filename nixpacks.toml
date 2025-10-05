@@ -1,11 +1,8 @@
-[build]
-rootDir = "chattoeic-api/backend"
-
 [phases.setup]
 nixPkgs = ["nodejs_22", "npm-9_x", "openssl"]
 
 [phases.install]
-cmds = ["npm ci"]
+cmds = ["npm run install"]
 
 [phases.build]
 cmds = ["npm run build"]

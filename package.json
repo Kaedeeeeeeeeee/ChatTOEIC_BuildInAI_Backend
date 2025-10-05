@@ -1,0 +1,17 @@
+{
+  "name": "chattoeic-backend-root",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "chattoeic-api/backend"
+  ],
+  "scripts": {
+    "install": "cd chattoeic-api/backend && npm install",
+    "build": "cd chattoeic-api/backend && npm run build",
+    "start": "cd chattoeic-api/backend && npm start"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
