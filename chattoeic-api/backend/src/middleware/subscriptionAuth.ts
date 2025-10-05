@@ -439,6 +439,7 @@ export async function incrementUsage(userId: string, resourceType: string, amoun
 
 /**
  * 检查AI练习权限的中间件
+ * 🆓 已修改为免费模式 - 所有用户都可以使用AI练习功能
  */
 export const requirePracticeAccess = async (
   req: AuthenticatedRequest,
@@ -455,35 +456,19 @@ export const requirePracticeAccess = async (
       });
     }
 
-    const subscriptionInfo = await getUserSubscriptionInfo(userId);
-    
-    if (!subscriptionInfo.permissions.aiPractice) {
-      return res.status(403).json({
-        success: false,
-        error: 'AI练习功能需要高级版订阅',
-        errorCode: 'SUBSCRIPTION_REQUIRED',
-        data: {
-          trialAvailable: subscriptionInfo.trialAvailable,
-          upgradeUrl: '/pricing',
-        },
-      });
-    }
+    // 🆓 免费模式：跳过订阅检查,所有用户都有权限
+    log.info('🆓 Practice access granted (free mode)', { userId });
 
-    // 检查每日练习配额
-    const quota = await checkUsageQuota(userId, 'daily_practice');
-    if (!quota.canUse) {
-      return res.status(403).json({
-        success: false,
-        error: '今日练习次数已用完',
-        errorCode: 'USAGE_LIMIT_EXCEEDED',
-        data: {
-          used: quota.used,
-          limit: quota.limit,
-          resetAt: quota.resetAt,
-          upgradeUrl: '/pricing',
-        },
-      });
-    }
+    // 获取订阅信息（仅用于统计，不阻止访问）
+    const subscriptionInfo = await getUserSubscriptionInfo(userId);
+
+    // 🆓 免费模式：跳过配额检查
+    const quota = {
+      canUse: true,
+      used: 0,
+      limit: null,
+      remaining: null,
+    };
 
     // 将订阅信息和配额信息添加到请求对象
     (req as any).subscriptionInfo = subscriptionInfo;
@@ -492,16 +477,14 @@ export const requirePracticeAccess = async (
     next();
   } catch (error) {
     log.error('Practice access check failed', { error, userId: req.user?.userId });
-    res.status(500).json({
-      success: false,
-      error: '权限检查失败',
-      errorCode: 'INTERNAL_ERROR',
-    });
+    // 🆓 免费模式：即使检查失败也放行
+    next();
   }
 };
 
 /**
  * 检查AI对话权限的中间件
+ * 🆓 已修改为免费模式 - 所有用户都可以使用AI对话功能
  */
 export const requireAiChatAccess = async (
   req: AuthenticatedRequest,
@@ -518,35 +501,19 @@ export const requireAiChatAccess = async (
       });
     }
 
-    const subscriptionInfo = await getUserSubscriptionInfo(userId);
-    
-    if (!subscriptionInfo.permissions.aiChat) {
-      return res.status(403).json({
-        success: false,
-        error: 'AI对话功能需要高级版订阅',
-        errorCode: 'SUBSCRIPTION_REQUIRED',
-        data: {
-          trialAvailable: subscriptionInfo.trialAvailable,
-          upgradeUrl: '/pricing',
-        },
-      });
-    }
+    // 🆓 免费模式：跳过订阅检查,所有用户都有权限
+    log.info('🆓 AI chat access granted (free mode)', { userId });
 
-    // 检查每日AI对话配额
-    const quota = await checkUsageQuota(userId, 'daily_ai_chat');
-    if (!quota.canUse) {
-      return res.status(403).json({
-        success: false,
-        error: `今日AI对话次数已用完 (${quota.used}/${quota.limit})`,
-        errorCode: 'USAGE_LIMIT_EXCEEDED',
-        data: {
-          used: quota.used,
-          limit: quota.limit,
-          resetAt: quota.resetAt,
-          upgradeUrl: '/pricing',
-        },
-      });
-    }
+    // 获取订阅信息（仅用于统计，不阻止访问）
+    const subscriptionInfo = await getUserSubscriptionInfo(userId);
+
+    // 🆓 免费模式：跳过配额检查
+    const quota = {
+      canUse: true,
+      used: 0,
+      limit: null,
+      remaining: null,
+    };
 
     // 将订阅信息和配额信息添加到请求对象
     (req as any).subscriptionInfo = subscriptionInfo;
@@ -555,16 +522,14 @@ export const requireAiChatAccess = async (
     next();
   } catch (error) {
     log.error('AI chat access check failed', { error, userId: req.user?.userId });
-    res.status(500).json({
-      success: false,
-      error: '权限检查失败',
-      errorCode: 'INTERNAL_ERROR',
-    });
+    // 🆓 免费模式：即使检查失败也放行
+    next();
   }
 };
 
 /**
  * 检查数据导出权限的中间件
+ * 🆓 已修改为免费模式 - 所有用户都可以导出数据
  */
 export const requireExportAccess = async (
   req: AuthenticatedRequest,
@@ -581,28 +546,14 @@ export const requireExportAccess = async (
       });
     }
 
-    const subscriptionInfo = await getUserSubscriptionInfo(userId);
-    
-    if (!subscriptionInfo.permissions.exportData) {
-      return res.status(403).json({
-        success: false,
-        error: '数据导出功能需要高级版订阅',
-        errorCode: 'SUBSCRIPTION_REQUIRED',
-        data: {
-          trialAvailable: subscriptionInfo.trialAvailable,
-          upgradeUrl: '/pricing',
-        },
-      });
-    }
+    // 🆓 免费模式：跳过订阅检查,所有用户都有权限
+    log.info('🆓 Export access granted (free mode)', { userId });
 
     next();
   } catch (error) {
     log.error('Export access check failed', { error, userId: req.user?.userId });
-    res.status(500).json({
-      success: false,
-      error: '权限检查失败',
-      errorCode: 'INTERNAL_ERROR',
-    });
+    // 🆓 免费模式：即使检查失败也放行
+    next();
   }
 };
 
