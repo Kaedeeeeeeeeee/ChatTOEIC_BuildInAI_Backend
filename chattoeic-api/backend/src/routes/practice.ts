@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/database.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { requirePracticeAccess, incrementUsage, AuthenticatedRequest } from '../middleware/subscriptionAuth.js';
@@ -11,13 +11,29 @@ import { v4 as uuidv4 } from 'uuid';
 const router = Router();
 
 // 生成练习题目 (需要AI速率限制和权限检查)
-router.post('/generate', 
+router.post('/generate',
   aiRateLimit,
   authenticateToken,
   requirePracticeAccess,
-  validateRequest({ body: schemas.questionGeneration }), 
+  (req: Request, res: Response, next: NextFunction) => {
+    console.log('📥 [题目生成请求] 原始数据:', {
+      path: req.path,
+      method: req.method,
+      headers: {
+        'content-type': req.headers['content-type'],
+        'content-length': req.headers['content-length']
+      },
+      body: req.body,
+      bodyType: typeof req.body,
+      bodyKeys: req.body ? Object.keys(req.body) : [],
+      timestamp: new Date().toISOString()
+    });
+    next();
+  },
+  validateRequest({ body: schemas.questionGeneration }),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
+      console.log('✅ [验证通过] 开始生成题目:', req.body);
       const questions = await geminiService.generateQuestions(req.body);
       
       // 生成成功后增加使用计数

@@ -34,11 +34,18 @@ export const validateRequest = (schema: {
     }
 
     if (errors.length > 0) {
-      console.log('Validation failed:', {
+      console.log('❌ [验证失败] 详细信息:', {
         path: req.path,
         method: req.method,
+        headers: {
+          'content-type': req.headers['content-type'],
+          authorization: req.headers.authorization ? 'present' : 'missing'
+        },
         body: req.body,
-        errors
+        query: req.query,
+        params: req.params,
+        errors,
+        timestamp: new Date().toISOString()
       });
       return res.status(400).json({
         success: false,
