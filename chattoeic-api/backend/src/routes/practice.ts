@@ -471,9 +471,17 @@ router.post('/sessions/:sessionId/complete',
     let savedToDatabase = false;
     if (req.user?.userId) {
       try {
-        // 只使用数据库中确实存在的字段
-        await prisma.practiceRecord.create({
-          data: {
+        // 使用 upsert 避免重复 sessionId 错误
+        await prisma.practiceRecord.upsert({
+          where: { sessionId },
+          update: {
+            correctAnswers,
+            totalTime: timeSpent || 0,
+            score: estimatedScore,
+            questions: processedQuestions,
+            completedAt: new Date()
+          },
+          create: {
             userId: req.user.userId,
             sessionId,
             questionType: questions[0]?.type === 'reading' ? 'READING_PART5' : 'LISTENING_PART1',
@@ -482,8 +490,8 @@ router.post('/sessions/:sessionId/complete',
             correctAnswers,
             totalTime: timeSpent || 0,
             score: estimatedScore,
-            questions: processedQuestions
-            // 暂时不包含可能不存在的字段，等数据库同步后再添加
+            questions: processedQuestions,
+            completedAt: new Date()
           }
         });
         savedToDatabase = true;
