@@ -48,6 +48,7 @@ import { log, logSystemHealth } from './utils/logger.js';
 import { ensureSubscriptionPlansExist } from './utils/seedData.js';
 // import { MonitoringService } from './services/monitoringService.js'; // 暂时禁用以排查问题
 import { prisma } from './utils/database.js';
+import { APP_VERSION } from './config/version.js';
 import { geminiService } from './services/geminiService.js';
 
 // 加载环境变量
@@ -471,7 +472,7 @@ app.use('/api/billing', billingRoutes); // Stripe支付系统路由
 app.get('/', (req, res) => {
   res.json({
     name: 'ChatTOEIC API',
-    version: '2.0.0',
+    version: APP_VERSION,
     status: 'running',
     timestamp: new Date().toISOString()
   });
@@ -529,13 +530,13 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 const server = app.listen(PORT, '0.0.0.0', async () => {
   // 使用结构化日志记录启动信息
   log.info('ChatTOEIC API Server Started', {
-    version: '2.0.0',
+    version: APP_VERSION,
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString()
   });
 
-  console.log(`🚀 ChatTOEIC API v2.0.0 服务器启动成功`);
+  console.log(`🚀 ChatTOEIC API v${APP_VERSION} 服务器启动成功`);
   console.log(`📡 服务地址: http://localhost:${PORT}`);
   console.log(`🌍 环境: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🏥 健康检查: http://localhost:${PORT}/api/health`);

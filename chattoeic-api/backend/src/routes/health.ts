@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { testDatabaseConnection } from '../utils/database.js';
 import { HealthStatus, DetailedHealthStatus } from '../types/index.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { APP_VERSION } from '../config/version.js';
 
 const router = Router();
 
@@ -11,7 +12,7 @@ router.get('/', async (req: Request, res: Response) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: process.env.npm_package_version || '2.0.0'
+    version: APP_VERSION
   };
 
   res.status(200).json(healthStatus);
@@ -52,7 +53,7 @@ router.get('/detailed', async (req: Request, res: Response) => {
       status: skipDbCheck ? 'healthy' : (dbStatus.connected ? 'healthy' : 'unhealthy'),
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      version: process.env.npm_package_version || '2.0.0',
+      version: APP_VERSION,
       database: dbStatus,
       memory: {
         used: Math.round(memUsage.heapUsed / 1024 / 1024), // MB
@@ -85,7 +86,7 @@ router.get('/detailed', async (req: Request, res: Response) => {
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      version: process.env.npm_package_version || '2.0.0',
+      version: APP_VERSION,
       error: 'Health check failed'
     });
   }

@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "npx prisma generate --schema=prisma/schema.prisma && ./node_modules/.bin/tsc --noEmit false || true",
-    "start": "npx prisma migrate deploy --schema=prisma/schema.prisma || npx prisma db push --schema=prisma/schema.prisma --accept-data-loss && node dist/server.js",
+    "start": "npx prisma migrate resolve --rolled-back 20250820125000_add_user_active_status --schema=prisma/schema.prisma ; npx prisma migrate deploy --schema=prisma/schema.prisma || npx prisma db push --schema=prisma/schema.prisma --accept-data-loss && node dist/server.js",
     "migration:generate": "npx prisma migrate dev --schema=prisma/schema.prisma",
     "migration:deploy": "npx prisma migrate deploy --schema=prisma/schema.prisma",
     "migration:reset": "npx prisma migrate reset --schema=prisma/schema.prisma --force",
