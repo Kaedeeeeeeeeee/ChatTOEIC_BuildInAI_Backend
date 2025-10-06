@@ -273,6 +273,7 @@ router.get('/sessions',
             difficulty: q.difficulty || 3,
             audioUrl: q.audioUrl,
             imageUrl: q.imageUrl,
+            passage: q.passage, // Part 6/7 文章内容
             tags: q.tags || [],
             questionOrder: index,
             createdAt: record.completedAt.toISOString()
