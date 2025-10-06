@@ -63,7 +63,7 @@ const logger = winston.createLogger({
   defaultMeta: {
     service: 'chattoeic-api',
     environment: process.env.NODE_ENV || 'development',
-    version: process.env.APP_VERSION || '2.0.0'
+    version: '3.1.0-PASSAGE-FIX-20251006' // 从 config/version.ts 导入会导致循环依赖
   },
   transports: [
     // 只使用控制台传输器，符合容器化最佳实践

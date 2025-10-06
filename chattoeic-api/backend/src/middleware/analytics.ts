@@ -62,7 +62,7 @@ export const trackPageVisit = (req: Request, res: Response, next: NextFunction) 
       },
       metadata: {
         platform: 'web',
-        version: '2.0.0',
+        version: '3.1.0-PASSAGE-FIX-20251006',
         environment: process.env.NODE_ENV || 'development'
       }
     });
