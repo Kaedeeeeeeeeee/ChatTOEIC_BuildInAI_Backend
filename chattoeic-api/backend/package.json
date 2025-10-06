@@ -1,6 +1,6 @@
 {
   "name": "chattoeic-api",
-  "version": "3.0.0-NEW-RAILWAY-DEPLOYMENT",
+  "version": "3.1.0-PASSAGE-FIX-20251006",
   "description": "ChatTOEIC Backend API Server",
   "main": "dist/server.js",
   "type": "module",
