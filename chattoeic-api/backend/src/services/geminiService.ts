@@ -341,9 +341,17 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
 
     // Part 6 特殊处理：展开嵌套的questions数组
     if (request.type === 'READING_PART6') {
+      console.log('🔍 [Part 6 Debug] Raw questions from Gemini:', JSON.stringify(questions, null, 2));
       const expandedQuestions: any[] = [];
 
       questions.forEach((item, docIndex) => {
+        console.log(`🔍 [Part 6 Debug] Document ${docIndex}:`, {
+          hasPassage: !!item.passage,
+          passageLength: item.passage?.length,
+          hasQuestions: Array.isArray(item.questions),
+          questionsCount: item.questions?.length
+        });
+
         if (item.passage && Array.isArray(item.questions)) {
           // Part 6格式：{ passage, questions: [...] }
           item.questions.forEach((subQ: any, qIndex: number) => {
