@@ -339,6 +339,39 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
       throw new Error('Invalid questions format');
     }
 
+    // Part 6 特殊处理：展开嵌套的questions数组
+    if (request.type === 'READING_PART6') {
+      const expandedQuestions: any[] = [];
+
+      questions.forEach((item, docIndex) => {
+        if (item.passage && Array.isArray(item.questions)) {
+          // Part 6格式：{ passage, questions: [...] }
+          item.questions.forEach((subQ: any, qIndex: number) => {
+            expandedQuestions.push({
+              id: item.id || `part6_${docIndex}_q${qIndex}`,
+              type: item.type || request.type,
+              difficulty: item.difficulty || request.difficulty,
+              passage: item.passage, // 每个子题目都包含完整的passage
+              question: subQ.question || `Choose the best option for blank __${subQ.questionNumber}__`,
+              options: subQ.options || [],
+              correctAnswer: subQ.correctAnswer,
+              explanation: subQ.explanation || '',
+              category: item.category,
+              // Part 6 元数据
+              documentId: item.id || `doc_${docIndex}`,
+              questionNumber: subQ.questionNumber || (qIndex + 1)
+            });
+          });
+        } else {
+          // 如果不是标准Part 6格式，保持原样
+          expandedQuestions.push(item);
+        }
+      });
+
+      console.log(`🔧 Part 6 questions expanded: ${questions.length} documents → ${expandedQuestions.length} questions`);
+      questions = expandedQuestions;
+    }
+
     return questions.map((q, index) => {
       // 将字符串形式的正确答案转换为数字索引
       let correctAnswerIndex = 0;
@@ -353,7 +386,7 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
       // 确保分类正确设置
       const questionType = q.type || request.type;
       let category = q.category;
-      
+
       if (!category || category === '未分类' || category === 'undefined') {
         // 根据题目类型推断分类
         category = getCategory(questionType);
