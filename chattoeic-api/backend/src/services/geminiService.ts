@@ -218,32 +218,32 @@ Part 6 要求：
     "id": "part6_1",
     "type": "READING_PART6",
     "difficulty": "${difficulty}",
-    "passage": "完整文章内容，用 __1__, __2__, __3__, __4__ 标记空格位置",
+    "passage": "完整文章内容，用 [BLANK1], [BLANK2], [BLANK3], [BLANK4] 标记空格位置",
     "questions": [
       {
         "questionNumber": 1,
-        "question": "Choose the best option for blank __1__",
+        "question": "Choose the best option for blank [BLANK1]",
         "options": ["选项A", "选项B", "选项C", "选项D"],
         "correctAnswer": 0,
         "explanation": "解释为什么这个答案正确"
       },
       {
         "questionNumber": 2,
-        "question": "Choose the best option for blank __2__",
+        "question": "Choose the best option for blank [BLANK2]",
         "options": ["选项A", "选项B", "选项C", "选项D"],
         "correctAnswer": 1,
         "explanation": "解释"
       },
       {
         "questionNumber": 3,
-        "question": "Choose the best option for blank __3__",
+        "question": "Choose the best option for blank [BLANK3]",
         "options": ["选项A", "选项B", "选项C", "选项D"],
         "correctAnswer": 2,
         "explanation": "解释"
       },
       {
         "questionNumber": 4,
-        "question": "Choose the best option for blank __4__",
+        "question": "Choose the best option for blank [BLANK4]",
         "options": ["选项A", "选项B", "选项C", "选项D"],
         "correctAnswer": 3,
         "explanation": "解释"
@@ -256,7 +256,7 @@ ${topic ? `文章主题：${topic}` : ''}
 ${customPrompt ? `特殊要求：${customPrompt}` : ''}
 
 **重要：**
-1. 每篇文章必须有4个空格
+1. 每篇文章必须有4个空格，使用[BLANK1], [BLANK2], [BLANK3], [BLANK4]格式
 2. 正确答案要分布在A、B、C、D中（尽量均匀）
 3. 直接返回JSON数组，不要Markdown包装
       `;
