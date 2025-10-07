@@ -35,11 +35,24 @@ router.post('/generate',
     try {
       console.log('✅ [验证通过] 开始生成题目:', req.body);
       const questions = await geminiService.generateQuestions(req.body);
-      
+
+      // 🔍 调试：检查返回给前端的题目数据
+      if (req.body.type === 'READING_PART6') {
+        console.log('🔍 [API返回] Part 6 题目返回前检查:', {
+          questionsCount: questions.length,
+          passageStatus: questions.map((q: any, i: number) => ({
+            index: i,
+            hasPassage: !!q.passage,
+            passageLength: q.passage?.length,
+            passagePreview: q.passage?.substring(0, 50)
+          }))
+        });
+      }
+
       // 生成成功后增加使用计数
       const userId = req.user!.userId;
       await incrementUsage(userId, 'daily_practice', 1);
-      
+
       res.json({
         success: true,
         data: {
@@ -242,9 +255,27 @@ router.get('/sessions',
 
       // 转换为前端期望的格式
       const sessions = records.map(record => {
+        // 🔍 调试：检查从数据库读取的原始数据
+        const isPart6Record = Array.isArray(record.questions) &&
+          record.questions.some((q: any) =>
+            q.category?.includes('Part 6') || q.category?.includes('段落填空')
+          );
+        if (isPart6Record) {
+          console.log('🔍 [数据库读取后] Part 6 原始数据检查:', {
+            sessionId: record.sessionId,
+            questionsCount: Array.isArray(record.questions) ? record.questions.length : 0,
+            rawPassageStatus: Array.isArray(record.questions) ? record.questions.map((q: any, i: number) => ({
+              index: i,
+              hasPassage: !!q.passage,
+              passageLength: q.passage?.length,
+              passagePreview: q.passage?.substring(0, 50)
+            })) : []
+          });
+        }
+
         // 计算百分比得分
         const percentageScore = Math.round((record.correctAnswers / record.questionsCount) * 100);
-        
+
         return {
           id: record.sessionId,
           sessionType: 'part_practice' as const,
@@ -466,6 +497,23 @@ router.post('/sessions/:sessionId/complete',
         timeSpent: userAnswerData?.timeSpent ?? 0
       };
     });
+
+    // 🔍 调试：检查保存到数据库前的题目数据
+    const isPart6 = questions.some((q: any) =>
+      q.category?.includes('Part 6') || q.category?.includes('段落填空')
+    );
+    if (isPart6) {
+      console.log('🔍 [数据库保存前] Part 6 题目检查:', {
+        sessionId,
+        questionsCount: processedQuestions.length,
+        passageStatus: processedQuestions.map((q: any, i: number) => ({
+          index: i,
+          hasPassage: !!q.passage,
+          passageLength: q.passage?.length,
+          passagePreview: q.passage?.substring(0, 50)
+        }))
+      });
+    }
 
     // 尝试保存到数据库（如果有用户认证）
     let savedToDatabase = false;
