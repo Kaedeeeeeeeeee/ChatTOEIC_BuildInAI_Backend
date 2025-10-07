@@ -51,24 +51,50 @@ class GeminiService {
       
       // 清理AI响应，移除Markdown代码块标记和其他格式
       let cleanedText = text.trim();
-      
+
       // 移除各种Markdown代码块格式
-      cleanedText = cleanedText.replace(/^```json\s*/g, '').replace(/\s*```$/g, '');
-      cleanedText = cleanedText.replace(/^```\s*/g, '').replace(/\s*```$/g, '');
-      
+      cleanedText = cleanedText.replace(/^```json\s*/gm, '').replace(/\s*```$/gm, '');
+      cleanedText = cleanedText.replace(/^```\s*/gm, '').replace(/\s*```$/gm, '');
+
       // 移除可能的前缀文本，直接找到JSON数组开始
       const jsonStart = cleanedText.indexOf('[');
       const jsonEnd = cleanedText.lastIndexOf(']');
-      
+
       if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
         cleanedText = cleanedText.substring(jsonStart, jsonEnd + 1);
       }
-      
+
       console.log('🧹 Cleaned text preview:', cleanedText.substring(0, 200));
       console.log('🧹 Cleaned text ends with:', cleanedText.substring(cleanedText.length - 50));
-      
+
+      // 尝试修复常见的JSON格式问题
+      try {
+        // 移除尾随逗号
+        cleanedText = cleanedText.replace(/,(\s*[}\]])/g, '$1');
+        // 修复可能的单引号
+        cleanedText = cleanedText.replace(/'/g, '"');
+        // 移除注释
+        cleanedText = cleanedText.replace(/\/\/.*/g, '');
+        cleanedText = cleanedText.replace(/\/\*[\s\S]*?\*\//g, '');
+      } catch (fixError) {
+        console.warn('⚠️ JSON修复失败:', fixError);
+      }
+
+      console.log('🔧 Fixed text preview:', cleanedText.substring(0, 300));
+
       // 解析清理后的JSON响应
-      const questions = JSON.parse(cleanedText);
+      let questions;
+      try {
+        questions = JSON.parse(cleanedText);
+      } catch (parseError: any) {
+        console.error('❌ JSON解析失败，原始文本:');
+        console.error('位置', parseError.message?.match(/position (\d+)/)?.[1] || 'unknown');
+        console.error('问题附近文本:', cleanedText.substring(
+          Math.max(0, parseInt(parseError.message?.match(/position (\d+)/)?.[1] || '0') - 100),
+          Math.min(cleanedText.length, parseInt(parseError.message?.match(/position (\d+)/)?.[1] || '0') + 100)
+        ));
+        throw parseError;
+      }
       console.log('✅ JSON parsed successfully, questions count:', questions.length);
       
       // 验证和格式化题目
