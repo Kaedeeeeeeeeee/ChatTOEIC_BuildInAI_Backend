@@ -357,7 +357,7 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
           const documentId = item.id || `doc_${docIndex}`;
           item.questions.forEach((subQ: any, qIndex: number) => {
             expandedQuestions.push({
-              id: `${documentId}_q${qIndex}`, // 确保每个子题有唯一ID
+              id: `${documentId}_q_${qIndex}`, // 确保每个子题有唯一ID（使用_q_格式与后端一致）
               type: item.type || request.type,
               difficulty: item.difficulty || request.difficulty,
               passage: item.passage, // 每个子题目都包含完整的passage
