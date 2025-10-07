@@ -173,11 +173,22 @@ The application uses these main stores:
 
 Key services providing business logic:
 
+**前端服务：**
 - **geminiAPI.ts** - Google Gemini API integration with rate limiting and error handling
 - **storageService.ts** - IndexedDB operations using Dexie
 - **errorService.ts** - Centralized error handling and logging
 - **scoreCalculator.ts** - TOEIC score estimation algorithms
-- **prompts.ts** - AI prompt templates and builders
+- **prompts.ts** - AI prompt templates and builders (前端版本，包含输入清理逻辑)
+- **hybridAIService.ts** - 混合AI服务，协调前端和后端AI调用
+
+**后端服务：**
+- **geminiService.ts** - 后端Gemini API服务，处理题目生成和AI交互
+- **prompts.ts** - 专业提示词模块，为每个TOEIC Part提供详细的提示词模板
+- **emailService.ts** - 邮件通知服务
+- **monitoringService.ts** - 监控和日志服务
+- **stripeService.ts** - 支付和订阅管理
+- **tokenBlacklistService.ts** - JWT令牌黑名单管理
+- **verificationCodeService.ts** - 验证码生成和验证
 
 ## Key Features
 
@@ -186,6 +197,54 @@ Key services providing business logic:
 - Interactive AI chat for learning assistance
 - Intelligent error analysis and explanations
 - API key management with local storage
+
+### 🎯 Prompts System (提示词系统)
+
+**位置：**
+- 前端：`frontend/src/services/prompts.ts` (包含输入清理逻辑)
+- 后端：`chattoeic-api/backend/src/services/prompts.ts` (纯提示词模板)
+
+**支持的TOEIC Part：**
+
+1. **Part 5 - 单句语法填空** (`buildPart5Prompt`)
+   - 特点：每题一个独立句子，包含一个空格
+   - 测试点：语法、词汇、词性辨析
+   - 格式：单题JSON数组，不包含passage字段
+   - 关键限制：❌ 禁止生成段落或邮件格式
+
+2. **Part 6 - 段落填空** (`buildPart6Prompt`)
+   - 特点：每篇文档包含4个空格
+   - 测试点：前3题语法/词汇，第4题句子插入
+   - 格式：包含`passage`字段（带[BLANK1-4]标记）和`questions`数组
+   - 文档类型：商务邮件、备忘录、通知、广告
+
+3. **Part 7 - 阅读理解** (`buildPart7Prompt`)
+   - 特点：完整商务文档+理解题
+   - 题型分布：细节题40%、主旨题20%、推理题30%、词汇题10%
+   - 格式：包含`passages`数组和`questions`数组
+   - 文档结构：根据题目数量自动调整（单篇/双篇/三篇）
+
+**使用方式：**
+```typescript
+// 后端geminiService.ts中使用
+import { buildQuestionPrompt } from './prompts.js';
+
+private buildQuestionPrompt(request: QuestionGenerationRequest): string {
+  return buildQuestionPrompt(request);
+}
+```
+
+**难度等级映射：**
+- BEGINNER: 400-600分水平
+- INTERMEDIATE: 600-800分水平
+- ADVANCED: 800-900分水平
+
+**提示词设计原则：**
+- 明确题型特征和禁止事项
+- 提供标准JSON格式示例
+- 强调正确答案随机分布
+- 包含详细的中文解释
+- 禁止Markdown代码块包装
 
 ### Practice System
 - Configurable practice sessions (difficulty, question count, time limits)
