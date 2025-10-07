@@ -71,11 +71,11 @@ class GeminiService {
       try {
         // 移除尾随逗号
         cleanedText = cleanedText.replace(/,(\s*[}\]])/g, '$1');
-        // 修复可能的单引号
-        cleanedText = cleanedText.replace(/'/g, '"');
         // 移除注释
         cleanedText = cleanedText.replace(/\/\/.*/g, '');
         cleanedText = cleanedText.replace(/\/\*[\s\S]*?\*\//g, '');
+        // 移除多余的空白字符
+        cleanedText = cleanedText.replace(/\s+/g, ' ');
       } catch (fixError) {
         console.warn('⚠️ JSON修复失败:', fixError);
       }
