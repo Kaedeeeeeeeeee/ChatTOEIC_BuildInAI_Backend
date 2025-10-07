@@ -470,13 +470,27 @@ router.post('/sessions/:sessionId/complete',
 
     // 处理题目数据，包含用户答案
     const processedQuestions = questions.map((q: any, index: number) => {
-      // 找到对应的用户答案
-      const userAnswerData = processedUserAnswers.find(ua => 
-        ua.questionId === (q.id || `${sessionId}_q_${index}`)
-      );
-      
+      const questionId = q.id || `${sessionId}_q_${index}`;
+
+      // 找到对应的用户答案 - 使用索引作为fallback
+      let userAnswerData = processedUserAnswers.find(ua => ua.questionId === questionId);
+
+      // 如果ID匹配失败,尝试使用索引匹配
+      if (!userAnswerData && processedUserAnswers[index]) {
+        userAnswerData = processedUserAnswers[index];
+        console.warn(`⚠️ 答案ID匹配失败,使用索引${index}作为fallback: questionId=${questionId}`);
+      }
+
+      console.log(`🔍 [数据保存] 题目${index} 答案映射:`, {
+        questionId,
+        foundAnswerByID: !!processedUserAnswers.find(ua => ua.questionId === questionId),
+        usedFallback: !processedUserAnswers.find(ua => ua.questionId === questionId) && !!processedUserAnswers[index],
+        userAnswer: userAnswerData?.answer,
+        isCorrect: userAnswerData?.isCorrect
+      });
+
       return {
-        id: q.id || `${sessionId}_q_${index}`,
+        id: questionId,
         sessionId,
         type: q.type || 'reading',
         category: fixCategory(q.category || '未分类', q.type || 'reading'),
