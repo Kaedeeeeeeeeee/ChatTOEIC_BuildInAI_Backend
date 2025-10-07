@@ -354,9 +354,10 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
 
         if (item.passage && Array.isArray(item.questions)) {
           // Part 6格式：{ passage, questions: [...] }
+          const documentId = item.id || `doc_${docIndex}`;
           item.questions.forEach((subQ: any, qIndex: number) => {
             expandedQuestions.push({
-              id: item.id || `part6_${docIndex}_q${qIndex}`,
+              id: `${documentId}_q${qIndex}`, // 确保每个子题有唯一ID
               type: item.type || request.type,
               difficulty: item.difficulty || request.difficulty,
               passage: item.passage, // 每个子题目都包含完整的passage
@@ -366,7 +367,7 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
               explanation: subQ.explanation || '',
               category: item.category,
               // Part 6 元数据
-              documentId: item.id || `doc_${docIndex}`,
+              documentId: documentId,
               questionNumber: subQ.questionNumber || (qIndex + 1)
             });
           });
