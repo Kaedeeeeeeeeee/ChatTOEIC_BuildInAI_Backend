@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { QuestionGenerationRequest, GeneratedQuestion } from '../types/index.js';
 import { getCategory, fixCategory } from '../utils/categoryMapping.js';
+import { buildQuestionPrompt } from './prompts.js';
 
 class GeminiService {
   private genAI: GoogleGenerativeAI;
@@ -224,6 +225,13 @@ ${context ? `出现语境：${context}` : ''}
   }
 
   private buildQuestionPrompt(request: QuestionGenerationRequest): string {
+    // 🎯 使用专业的提示词模块
+    console.log(`📝 [Prompts] 使用专业提示词生成 ${request.type} 题目`);
+    return buildQuestionPrompt(request);
+  }
+
+  // 保留旧的方法作为备份（如果新prompts出问题可以回退）
+  private buildQuestionPromptLegacy(request: QuestionGenerationRequest): string {
     const { type, difficulty, count, topic, customPrompt } = request;
 
     // Part 6 特殊处理：段落填空题
