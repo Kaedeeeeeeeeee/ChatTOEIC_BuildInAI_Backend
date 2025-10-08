@@ -373,13 +373,14 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
       throw new Error('Invalid questions format');
     }
 
-    // Part 6 特殊处理：展开嵌套的questions数组
-    if (request.type === 'READING_PART6') {
-      console.log('🔍 [Part 6 Debug] Raw questions from Gemini:', JSON.stringify(questions, null, 2));
+    // Part 6 & Part 7 特殊处理：展开嵌套的questions数组
+    if (request.type === 'READING_PART6' || request.type === 'READING_PART7') {
+      const partType = request.type === 'READING_PART6' ? 'Part 6' : 'Part 7';
+      console.log(`🔍 [${partType} Debug] Raw questions from Gemini:`, JSON.stringify(questions, null, 2));
       const expandedQuestions: any[] = [];
 
       questions.forEach((item, docIndex) => {
-        console.log(`🔍 [Part 6 Debug] Document ${docIndex}:`, {
+        console.log(`🔍 [${partType} Debug] Document ${docIndex}:`, {
           hasPassage: !!item.passage,
           passageLength: item.passage?.length,
           hasQuestions: Array.isArray(item.questions),
@@ -387,7 +388,7 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
         });
 
         if (item.passage && Array.isArray(item.questions)) {
-          // Part 6格式：{ passage, questions: [...] }
+          // Part 6/7格式：{ passage, questions: [...] }
           const documentId = item.id || `doc_${docIndex}`;
           item.questions.forEach((subQ: any, qIndex: number) => {
             expandedQuestions.push({
@@ -395,23 +396,25 @@ ${context ? `题目信息：${JSON.stringify(context)}` : ''}
               type: item.type || request.type,
               difficulty: item.difficulty || request.difficulty,
               passage: item.passage, // 每个子题目都包含完整的passage
-              question: subQ.question || `Choose the best option for blank __${subQ.questionNumber}__`,
+              question: subQ.question || (request.type === 'READING_PART6'
+                ? `Choose the best option for blank __${subQ.questionNumber}__`
+                : `Question ${subQ.questionNumber}`),
               options: subQ.options || [],
               correctAnswer: subQ.correctAnswer,
               explanation: subQ.explanation || '',
               category: item.category,
-              // Part 6 元数据
+              // 元数据
               documentId: documentId,
               questionNumber: subQ.questionNumber || (qIndex + 1)
             });
           });
         } else {
-          // 如果不是标准Part 6格式，保持原样
+          // 如果不是标准嵌套格式，保持原样
           expandedQuestions.push(item);
         }
       });
 
-      console.log(`🔧 Part 6 questions expanded: ${questions.length} documents → ${expandedQuestions.length} questions`);
+      console.log(`🔧 ${partType} questions expanded: ${questions.length} documents → ${expandedQuestions.length} questions`);
       questions = expandedQuestions;
     }
 

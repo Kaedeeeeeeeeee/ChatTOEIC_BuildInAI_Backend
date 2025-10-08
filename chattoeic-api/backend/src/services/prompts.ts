@@ -207,71 +207,52 @@ export const buildPart7Prompt = (request: QuestionGenerationRequest): string => 
 - 重要：所有${totalQuestions}道题目必须基于**同一篇文档**，passage字段内容完全相同
 - 警告：即使count=${passageCount}，也必须返回${totalQuestions}个题目对象！
 
-**EXACT JSON FORMAT（完全按此格式）：**
+**EXACT JSON FORMAT（参考Part 6嵌套结构）：**
 [
   {
-    "id": "part7_1",
+    "id": "part7_doc1",
     "type": "READING_PART7",
     "difficulty": "${difficulty}",
+    "category": "Part 7 - 阅读理解",
     "passage": "To: All Staff\\nFrom: Human Resources Department\\nDate: March 15, 2024\\nSubject: New Employee Benefits Program\\n\\nWe are pleased to announce the implementation of our enhanced employee benefits program, effective April 1, 2024. All full-time employees will receive comprehensive medical, dental, and vision insurance at no additional cost. Part-time employees working more than 20 hours per week will also qualify for basic medical coverage.\\n\\nKey Benefits Include:\\n- Zero-deductible health insurance\\n- Dental coverage with orthodontic benefits\\n- Vision care with annual eye exams\\n- $50,000 life insurance policy\\n\\nTo learn more about these benefits, please attend one of our information sessions on March 22nd at 2:00 PM or March 25th at 10:00 AM in Conference Room A. You can also visit our HR portal at hr.company.com for detailed benefit summaries.\\n\\nIf you have any questions, please contact the HR department at extension 5500.\\n\\nBest regards,\\nSarah Johnson\\nHuman Resources Director",
-    "question": "What is the main purpose of this email?",
-    "options": [
-      "To announce a new employee benefits program",
-      "To schedule a mandatory meeting",
-      "To recruit new employees",
-      "To reduce company healthcare costs"
-    ],
-    "correctAnswer": 0,
-    "explanation": "邮件开头明确说明'We are pleased to announce the implementation of our enhanced employee benefits program'，主要目的是宣布新的员工福利计划。",
-    "category": "Part 7 - 阅读理解"
-  },
-  {
-    "id": "part7_2",
-    "type": "READING_PART7",
-    "difficulty": "${difficulty}",
-    "passage": "To: All Staff\\nFrom: Human Resources Department\\nDate: March 15, 2024\\nSubject: New Employee Benefits Program\\n\\nWe are pleased to announce the implementation of our enhanced employee benefits program, effective April 1, 2024. All full-time employees will receive comprehensive medical, dental, and vision insurance at no additional cost. Part-time employees working more than 20 hours per week will also qualify for basic medical coverage.\\n\\nKey Benefits Include:\\n- Zero-deductible health insurance\\n- Dental coverage with orthodontic benefits\\n- Vision care with annual eye exams\\n- $50,000 life insurance policy\\n\\nTo learn more about these benefits, please attend one of our information sessions on March 22nd at 2:00 PM or March 25th at 10:00 AM in Conference Room A. You can also visit our HR portal at hr.company.com for detailed benefit summaries.\\n\\nIf you have any questions, please contact the HR department at extension 5500.\\n\\nBest regards,\\nSarah Johnson\\nHuman Resources Director",
-    "question": "Who is eligible for basic medical coverage?",
-    "options": [
-      "All employees regardless of status",
-      "Only full-time employees",
-      "Part-time employees working over 20 hours weekly",
-      "Only management staff"
-    ],
-    "correctAnswer": 2,
-    "explanation": "邮件中明确指出'Part-time employees working more than 20 hours per week will also qualify for basic medical coverage'，兼职员工每周工作超过20小时即可获得基本医疗保险。",
-    "category": "Part 7 - 阅读理解"
-  },
-  {
-    "id": "part7_3",
-    "type": "READING_PART7",
-    "difficulty": "${difficulty}",
-    "passage": "To: All Staff\\nFrom: Human Resources Department\\nDate: March 15, 2024\\nSubject: New Employee Benefits Program\\n\\nWe are pleased to announce the implementation of our enhanced employee benefits program, effective April 1, 2024. All full-time employees will receive comprehensive medical, dental, and vision insurance at no additional cost. Part-time employees working more than 20 hours per week will also qualify for basic medical coverage.\\n\\nKey Benefits Include:\\n- Zero-deductible health insurance\\n- Dental coverage with orthodontic benefits\\n- Vision care with annual eye exams\\n- $50,000 life insurance policy\\n\\nTo learn more about these benefits, please attend one of our information sessions on March 22nd at 2:00 PM or March 25th at 10:00 AM in Conference Room A. You can also visit our HR portal at hr.company.com for detailed benefit summaries.\\n\\nIf you have any questions, please contact the HR department at extension 5500.\\n\\nBest regards,\\nSarah Johnson\\nHuman Resources Director",
-    "question": "When can employees attend an information session?",
-    "options": [
-      "March 15 at 2:00 PM",
-      "March 22 at 2:00 PM or March 25 at 10:00 AM",
-      "April 1 at any time",
-      "Only by appointment"
-    ],
-    "correctAnswer": 1,
-    "explanation": "邮件中提到'please attend one of our information sessions on March 22nd at 2:00 PM or March 25th at 10:00 AM'，提供了两个具体的时间选项。",
-    "category": "Part 7 - 阅读理解"
-  },
-  {
-    "id": "part7_4",
-    "type": "READING_PART7",
-    "difficulty": "${difficulty}",
-    "passage": "To: All Staff\\nFrom: Human Resources Department\\nDate: March 15, 2024\\nSubject: New Employee Benefits Program\\n\\nWe are pleased to announce the implementation of our enhanced employee benefits program, effective April 1, 2024. All full-time employees will receive comprehensive medical, dental, and vision insurance at no additional cost. Part-time employees working more than 20 hours per week will also qualify for basic medical coverage.\\n\\nKey Benefits Include:\\n- Zero-deductible health insurance\\n- Dental coverage with orthodontic benefits\\n- Vision care with annual eye exams\\n- $50,000 life insurance policy\\n\\nTo learn more about these benefits, please attend one of our information sessions on March 22nd at 2:00 PM or March 25th at 10:00 AM in Conference Room A. You can also visit our HR portal at hr.company.com for detailed benefit summaries.\\n\\nIf you have any questions, please contact the HR department at extension 5500.\\n\\nBest regards,\\nSarah Johnson\\nHuman Resources Director",
-    "question": "What can be inferred about the new benefits program?",
-    "options": [
-      "It will cost employees more money",
-      "It represents an improvement over the previous program",
-      "It only applies to new hires",
-      "It requires employees to change doctors"
-    ],
-    "correctAnswer": 1,
-    "explanation": "从'enhanced employee benefits program'（增强的员工福利计划）这个表述可以推断，新计划是对之前福利的改进和提升。",
-    "category": "Part 7 - 阅读理解"
+    "questions": [
+      {
+        "questionNumber": 1,
+        "question": "What is the main purpose of this email?",
+        "options": [
+          "To announce a new employee benefits program",
+          "To schedule a mandatory meeting",
+          "To recruit new employees",
+          "To reduce company healthcare costs"
+        ],
+        "correctAnswer": 0,
+        "explanation": "邮件开头明确说明'We are pleased to announce the implementation of our enhanced employee benefits program'，主要目的是宣布新的员工福利计划。"
+      },
+      {
+        "questionNumber": 2,
+        "question": "Who is eligible for basic medical coverage?",
+        "options": [
+          "All employees regardless of status",
+          "Only full-time employees",
+          "Part-time employees working over 20 hours weekly",
+          "Only management staff"
+        ],
+        "correctAnswer": 2,
+        "explanation": "邮件中明确指出'Part-time employees working more than 20 hours per week will also qualify for basic medical coverage'，兼职员工每周工作超过20小时即可获得基本医疗保险。"
+      },
+      {
+        "questionNumber": 3,
+        "question": "When can employees attend an information session?",
+        "options": [
+          "March 15 at 2:00 PM",
+          "March 22 at 2:00 PM or March 25 at 10:00 AM",
+          "April 1 at any time",
+          "Only by appointment"
+        ],
+        "correctAnswer": 1,
+        "explanation": "邮件中提到'please attend one of our information sessions on March 22nd at 2:00 PM or March 25th at 10:00 AM'，提供了两个具体的时间选项。"
+      }
+    ]
   }
 ]
 
@@ -295,21 +276,25 @@ export const buildPart7Prompt = (request: QuestionGenerationRequest): string => 
 - 包含足够的细节信息支撑所有题目
 - 格式规范，符合真实商务场景
 
-**关键要求：**
-1. ✅ 必须返回**${totalQuestions}道题目**（JSON数组长度 = ${totalQuestions}）
-2. ✅ 所有${totalQuestions}道题的passage字段**必须完全相同**（同一篇文档）
-3. ✅ 题目必须涵盖文档的不同部分（开头、中间、结尾）
-4. ✅ 难度递增：第1题最简单（主旨题），后续题目逐渐增加难度
-5. ✅ 选项不要包含A)、B)等前缀，纯文本内容
-6. ✅ 正确答案随机分布在0、1、2、3（对应A、B、C、D）
-7. ✅ 直接返回JSON数组，不要Markdown代码块包装
-8. ❌ 不要生成单句填空题（那是Part 5）
-9. ❌ 不要生成段落填空题（那是Part 6）
-10. ⚠️ 即使请求参数count=${passageCount}，也必须生成${totalQuestions}道题！
+**关键要求（参考Part 6格式）：**
+1. ✅ 返回格式：**嵌套结构**，与Part 6类似
+   - 顶层数组包含${passageCount}个文档对象
+   - 每个文档对象包含passage字段 + questions数组
+   - questions数组包含${totalQuestions}个子题目对象
+2. ✅ 文档对象结构：{ id, type, difficulty, category, passage, questions: [...] }
+3. ✅ 子题目结构：{ questionNumber, question, options, correctAnswer, explanation }
+4. ✅ 题目必须涵盖文档的不同部分（开头、中间、结尾）
+5. ✅ 难度递增：第1题最简单（主旨题），后续题目逐渐增加难度
+6. ✅ 选项不要包含A)、B)等前缀，纯文本内容
+7. ✅ 正确答案随机分布在0、1、2、3（对应A、B、C、D）
+8. ✅ 直接返回JSON数组，不要Markdown代码块包装
+9. ❌ 不要生成单句填空题（那是Part 5）
+10. ❌ 不要生成段落填空题（那是Part 6）
+11. ⚠️ 即使count=${passageCount}，questions数组长度必须是${totalQuestions}！
 
 现在请生成：
-- ${passageCount}篇完整商务文档（所有题目共用同一篇）
-- **${totalQuestions}道**标准TOEIC Part 7阅读理解题（不是${passageCount}道！）`;
+- ${passageCount}个文档对象（顶层数组长度 = ${passageCount}）
+- 每个文档包含${totalQuestions}道阅读理解题（questions数组长度 = ${totalQuestions}）`;
 };
 
 /**
