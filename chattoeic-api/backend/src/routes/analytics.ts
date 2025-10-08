@@ -1332,4 +1332,210 @@ router.post('/debug/fix-timezone',
   }
 );
 
+// ===============================
+// 阶段1数据分析端点（DAU/MAU/用户行为）
+// ===============================
+
+/**
+ * GET /api/analytics/dau
+ * 获取每日活跃用户数（Daily Active Users）
+ */
+router.get('/dau', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    // 默认查询最近7天
+    const end = endDate ? new Date(endDate as string) : new Date();
+    const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    // 按日期分组统计登录用户数
+    const dauData = await prisma.$queryRaw<Array<{ date: string; count: bigint }>>`
+      SELECT
+        DATE("loginAt") as date,
+        COUNT(DISTINCT "userId") as count
+      FROM "user_login_history"
+      WHERE "loginAt" >= ${start} AND "loginAt" <= ${end}
+      GROUP BY DATE("loginAt")
+      ORDER BY DATE("loginAt") DESC
+    `;
+
+    res.json({
+      success: true,
+      data: {
+        period: {
+          startDate: start.toISOString(),
+          endDate: end.toISOString()
+        },
+        dau: dauData.map(item => ({
+          date: item.date,
+          activeUsers: Number(item.count)
+        }))
+      }
+    });
+  } catch (error) {
+    log.error('DAU query failed', { error });
+    res.status(500).json({
+      success: false,
+      error: 'DAU数据获取失败'
+    });
+  }
+});
+
+/**
+ * GET /api/analytics/mau
+ * 获取月活跃用户数（Monthly Active Users）
+ */
+router.get('/mau', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { months = '3' } = req.query;
+    const monthCount = parseInt(months as string, 10);
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - monthCount);
+
+    // 按月份分组统计登录用户数
+    const mauData = await prisma.$queryRaw<Array<{ month: string; count: bigint }>>`
+      SELECT
+        TO_CHAR("loginAt", 'YYYY-MM') as month,
+        COUNT(DISTINCT "userId") as count
+      FROM "user_login_history"
+      WHERE "loginAt" >= ${startDate}
+      GROUP BY TO_CHAR("loginAt", 'YYYY-MM')
+      ORDER BY month DESC
+    `;
+
+    res.json({
+      success: true,
+      data: {
+        months: monthCount,
+        mau: mauData.map(item => ({
+          month: item.month,
+          activeUsers: Number(item.count)
+        }))
+      }
+    });
+  } catch (error) {
+    log.error('MAU query failed', { error });
+    res.status(500).json({
+      success: false,
+      error: 'MAU数据获取失败'
+    });
+  }
+});
+
+/**
+ * GET /api/analytics/user-engagement
+ * 获取用户参与度数据（会话时长、设备分布等）
+ */
+router.get('/user-engagement', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { days = '7' } = req.query;
+    const dayCount = parseInt(days as string, 10);
+    const startDate = new Date(Date.now() - dayCount * 24 * 60 * 60 * 1000);
+
+    // 会话时长统计
+    const sessionStats = await prisma.userLoginHistory.aggregate({
+      where: {
+        loginAt: {
+          gte: startDate
+        },
+        sessionDuration: {
+          not: null
+        }
+      },
+      _avg: {
+        sessionDuration: true
+      },
+      _max: {
+        sessionDuration: true
+      },
+      _count: {
+        id: true
+      }
+    });
+
+    // 设备类型分布
+    const deviceDistribution = await prisma.userLoginHistory.groupBy({
+      by: ['deviceType'],
+      where: {
+        loginAt: {
+          gte: startDate
+        }
+      },
+      _count: {
+        id: true
+      }
+    });
+
+    // 浏览器分布
+    const browserDistribution = await prisma.userLoginHistory.groupBy({
+      by: ['browserType'],
+      where: {
+        loginAt: {
+          gte: startDate
+        }
+      },
+      _count: {
+        id: true
+      }
+    });
+
+    // 操作系统分布
+    const osDistribution = await prisma.userLoginHistory.groupBy({
+      by: ['osType'],
+      where: {
+        loginAt: {
+          gte: startDate
+        }
+      },
+      _count: {
+        id: true
+      }
+    });
+
+    const totalSessions = sessionStats._count.id;
+
+    res.json({
+      success: true,
+      data: {
+        period: {
+          days: dayCount,
+          startDate: startDate.toISOString()
+        },
+        sessionDuration: {
+          avgSeconds: sessionStats._avg.sessionDuration ? Math.round(sessionStats._avg.sessionDuration) : null,
+          maxSeconds: sessionStats._max.sessionDuration || null,
+          totalSessions
+        },
+        deviceDistribution: deviceDistribution.map(d => ({
+          type: d.deviceType || 'unknown',
+          count: d._count.id,
+          percentage: totalSessions > 0
+            ? ((d._count.id / totalSessions) * 100).toFixed(2)
+            : '0.00'
+        })),
+        browserDistribution: browserDistribution.map(b => ({
+          type: b.browserType || 'unknown',
+          count: b._count.id,
+          percentage: totalSessions > 0
+            ? ((b._count.id / totalSessions) * 100).toFixed(2)
+            : '0.00'
+        })),
+        osDistribution: osDistribution.map(os => ({
+          type: os.osType || 'unknown',
+          count: os._count.id,
+          percentage: totalSessions > 0
+            ? ((os._count.id / totalSessions) * 100).toFixed(2)
+            : '0.00'
+        }))
+      }
+    });
+  } catch (error) {
+    log.error('User engagement query failed', { error });
+    res.status(500).json({
+      success: false,
+      error: '用户参与度数据获取失败'
+    });
+  }
+});
+
 export default router;

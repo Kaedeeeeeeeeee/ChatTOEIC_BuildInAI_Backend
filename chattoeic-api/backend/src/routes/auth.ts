@@ -11,6 +11,7 @@ import { notifyDashboardUpdate } from './dashboard-stream.js';
 import { emailService } from '../services/emailService.js';
 import { verificationCodeService } from '../services/verificationCodeService.js';
 import { log } from '../utils/logger.js';
+import { generateLoginHistoryData } from '../utils/deviceDetection.js';
 
 const router = Router();
 
@@ -375,26 +376,27 @@ router.post('/login', authRateLimit, validateRequest({ body: schemas.userLogin }
     // 更新用户最后登录时间 - 增强版本
     const loginTime = new Date();
     let loginUpdateSuccess = false;
-    
+    let loginHistoryId: string | undefined;
+
     try {
       const updateResult = await prisma.user.update({
         where: { id: user.id },
-        data: { 
+        data: {
           lastLoginAt: loginTime,
           // 确保邮箱验证状态为true（用于Dashboard显示）
           emailVerified: true
         }
       });
-      
+
       console.log('✅ 用户登录时间更新成功:', {
         userId: user.id,
         email: user.email,
         loginTime: loginTime.toISOString(),
         updateResult: !!updateResult
       });
-      
+
       loginUpdateSuccess = true;
-      
+
     } catch (updateError) {
       console.error('❌ 登录时间更新失败:', {
         userId: user.id,
@@ -402,7 +404,7 @@ router.post('/login', authRateLimit, validateRequest({ body: schemas.userLogin }
         error: updateError.message,
         stack: updateError.stack
       });
-      
+
       // 尝试替代方案：单独更新字段
       try {
         await prisma.$executeRaw`UPDATE "User" SET "lastLoginAt" = ${loginTime} WHERE id = ${user.id}`;
@@ -411,6 +413,33 @@ router.post('/login', authRateLimit, validateRequest({ body: schemas.userLogin }
       } catch (rawError) {
         console.error('❌ 原始SQL更新也失败:', rawError.message);
       }
+    }
+
+    // 创建登录历史记录（用于数据分析）
+    try {
+      const deviceData = generateLoginHistoryData(req);
+      const loginHistory = await prisma.userLoginHistory.create({
+        data: {
+          userId: user.id,
+          loginAt: loginTime,
+          ...deviceData
+        }
+      });
+
+      loginHistoryId = loginHistory.id;
+
+      console.log('✅ 登录历史记录创建成功:', {
+        userId: user.id,
+        historyId: loginHistory.id,
+        deviceType: deviceData.deviceType,
+        browserType: deviceData.browserType
+      });
+    } catch (historyError) {
+      console.error('❌ 登录历史记录创建失败:', {
+        userId: user.id,
+        error: historyError.message
+      });
+      // 不影响登录流程，仅记录错误
     }
     
     // 验证更新结果
@@ -624,12 +653,56 @@ router.put('/me', authenticateToken, async (req: Request, res: Response) => {
 
 // 退出登录
 router.post('/logout', authenticateToken, async (req: Request, res: Response) => {
-  // 在实际应用中，这里可以将令牌加入黑名单
-  // 目前只是返回成功响应
-  res.json({
-    success: true,
-    message: '退出登录成功'
-  });
+  try {
+    const userId = (req as any).user?.userId;
+
+    if (userId) {
+      // 查找最近一次未记录登出的登录历史
+      const latestLogin = await prisma.userLoginHistory.findFirst({
+        where: {
+          userId,
+          logoutAt: null
+        },
+        orderBy: {
+          loginAt: 'desc'
+        }
+      });
+
+      if (latestLogin) {
+        // 更新登出时间并计算会话时长
+        const logoutTime = new Date();
+        const sessionDuration = Math.floor((logoutTime.getTime() - latestLogin.loginAt.getTime()) / 1000); // 秒
+
+        await prisma.userLoginHistory.update({
+          where: { id: latestLogin.id },
+          data: {
+            logoutAt: logoutTime,
+            sessionDuration
+          }
+        });
+
+        console.log('✅ 登出历史记录更新成功:', {
+          userId,
+          historyId: latestLogin.id,
+          sessionDuration: `${sessionDuration}秒`
+        });
+      }
+    }
+
+    // 在实际应用中，这里可以将令牌加入黑名单
+    // 目前只是返回成功响应
+    res.json({
+      success: true,
+      message: '退出登录成功'
+    });
+  } catch (error) {
+    console.error('❌ 登出处理失败:', error);
+    // 即使出错也返回成功，不影响用户体验
+    res.json({
+      success: true,
+      message: '退出登录成功'
+    });
+  }
 });
 
 // 生成JWT令牌的辅助函数

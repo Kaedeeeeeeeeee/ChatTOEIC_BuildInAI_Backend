@@ -76,15 +76,16 @@ model User {
   subscription      UserSubscription?
   usageQuotas       UsageQuota[]
   paymentTransactions PaymentTransaction[]
-  
+  loginHistory      UserLoginHistory[]   // 登录历史记录
+
   // 题目系统相关
   questionRatings   QuestionRating[]     // 用户对题目的评分
   createdQuestions  Question[]           // 管理员创建的题目
-  
+
   // 管理员操作日志
   adminSubscriptionLogs AdminSubscriptionLog[] // 作为管理员执行的操作
   targetAdminLogs       AdminSubscriptionLog[] @relation("AdminLogTargetUser") // 作为目标用户的操作记录
-  
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   lastLoginAt       DateTime?
@@ -101,12 +102,42 @@ model VerificationCode {
   expiresAt    DateTime
   attempts     Int      @default(0)
   maxAttempts  Int      @default(5)
-  
+
   createdAt    DateTime @default(now())
-  
+
   @@index([email, type])
   @@index([expiresAt])
   @@map("verification_codes")
+}
+
+// 用户登录历史表 (用于DAU/MAU/会话时长分析)
+model UserLoginHistory {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 登录信息
+  loginAt         DateTime @default(now())
+  logoutAt        DateTime?
+  sessionDuration Int?     // 会话时长（秒）
+
+  // 设备信息
+  ipAddress       String?
+  userAgent       String?
+  deviceType      String?  // "mobile", "tablet", "desktop"
+  browserType     String?  // "chrome", "safari", "firefox", etc.
+  osType          String?  // "windows", "macos", "ios", "android"
+
+  // 位置信息（可选）
+  country         String?
+  city            String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, loginAt])
+  @@index([loginAt])
+  @@map("user_login_history")
 }
 
 // ===============================
@@ -240,9 +271,16 @@ model PracticeRecord {
   
   // 旧版兼容字段（逐步迁移）
   questions       Json?          // 旧版题目存储方式
-  
+
+  // 会话追踪字段（阶段1扩展）
+  startedAt       DateTime?      // 练习开始时间
+  pausedDuration  Int?           // 暂停总时长（秒）
+  abandonedAt     DateTime?      // 如果用户未完成就退出，记录放弃时间
+  deviceType      String?        // "mobile", "tablet", "desktop"
+  browserType     String?        // "chrome", "safari", "firefox", etc.
+
   completedAt     DateTime       @default(now())
-  
+
   @@map("practice_records")
 }
 
