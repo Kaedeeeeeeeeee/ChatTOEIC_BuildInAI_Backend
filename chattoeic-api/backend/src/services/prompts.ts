@@ -183,15 +183,29 @@ export const buildPart7Prompt = (request: QuestionGenerationRequest): string => 
 
   const targetScore = difficultyToScore(difficulty);
 
-  return `你是专业的TOEIC Part 7阅读理解出题专家。请生成${count}道${targetScore}分难度的阅读理解题。
+  // 🎯 关键修复：count是文章数量，每篇文章应该生成2-4道题
+  // 单篇文章：生成2-4题（根据难度调整）
+  // 双篇文章：生成5题
+  // 三篇文章：生成5题
+  const passageCount = count; // 文章数量
+  const questionsPerPassage = passageCount === 1 ? 3 : 5; // 单篇3题，多篇5题
+  const totalQuestions = questionsPerPassage; // Part 7总是返回固定数量的题目
 
-**🚨 CRITICAL: Part 7 格式要求 🚨**
+  return `你是专业的TOEIC Part 7阅读理解出题专家。请严格按照TOEIC官方格式生成阅读理解题。
 
-Part 7 特征：
-- ✅ 基于一篇或多篇商务文档的阅读理解题
-- ✅ 每道题包含完整的文档内容（passage字段）
-- ✅ 测试细节理解、主旨把握、推理能力
-- ❌ 不是单句填空，需要完整的商务文档
+**🚨 TOEIC Part 7 官方标准 🚨**
+
+**Part 7 格式要求：**
+- 单篇文章（Single Passage）：每篇文章配 2-4 道题目
+- 双篇文章（Double Passage）：两篇相关文章配 5 道题目
+- 三篇文章（Triple Passage）：三篇相关文章配 5 道题目
+
+**本次出题要求：**
+- 文章数量：**${passageCount}篇** 商务文档
+- 题目总数：必须生成**${totalQuestions}道**题（不是${passageCount}道！）
+- 难度级别：${targetScore}分水平
+- 重要：所有${totalQuestions}道题目必须基于**同一篇文档**，passage字段内容完全相同
+- 警告：即使count=${passageCount}，也必须返回${totalQuestions}个题目对象！
 
 **EXACT JSON FORMAT（完全按此格式）：**
 [
@@ -199,59 +213,103 @@ Part 7 特征：
     "id": "part7_1",
     "type": "READING_PART7",
     "difficulty": "${difficulty}",
-    "passage": "To: All Staff\\nFrom: Human Resources\\nDate: March 15, 2024\\nSubject: New Health Benefits\\n\\nWe are pleased to announce enhanced health insurance coverage starting April 1st. All full-time employees will receive comprehensive medical, dental, and vision benefits at no additional cost. Part-time employees working more than 20 hours per week will also qualify for basic coverage.\\n\\nFor more details, please attend the information session on March 22nd at 2 PM in Conference Room A, or visit our HR portal.",
-    "question": "What is the main purpose of this memo?",
+    "passage": "To: All Staff\\nFrom: Human Resources Department\\nDate: March 15, 2024\\nSubject: New Employee Benefits Program\\n\\nWe are pleased to announce the implementation of our enhanced employee benefits program, effective April 1, 2024. All full-time employees will receive comprehensive medical, dental, and vision insurance at no additional cost. Part-time employees working more than 20 hours per week will also qualify for basic medical coverage.\\n\\nKey Benefits Include:\\n- Zero-deductible health insurance\\n- Dental coverage with orthodontic benefits\\n- Vision care with annual eye exams\\n- $50,000 life insurance policy\\n\\nTo learn more about these benefits, please attend one of our information sessions on March 22nd at 2:00 PM or March 25th at 10:00 AM in Conference Room A. You can also visit our HR portal at hr.company.com for detailed benefit summaries.\\n\\nIf you have any questions, please contact the HR department at extension 5500.\\n\\nBest regards,\\nSarah Johnson\\nHuman Resources Director",
+    "question": "What is the main purpose of this email?",
     "options": [
-      "To announce new health benefits",
-      "To schedule a meeting",
-      "To hire new employees",
-      "To reduce insurance costs"
+      "To announce a new employee benefits program",
+      "To schedule a mandatory meeting",
+      "To recruit new employees",
+      "To reduce company healthcare costs"
     ],
     "correctAnswer": 0,
-    "explanation": "邮件开头明确说明'We are pleased to announce enhanced health insurance coverage'，主要目的是宣布新的健康福利。",
+    "explanation": "邮件开头明确说明'We are pleased to announce the implementation of our enhanced employee benefits program'，主要目的是宣布新的员工福利计划。",
     "category": "Part 7 - 阅读理解"
   },
   {
     "id": "part7_2",
     "type": "READING_PART7",
     "difficulty": "${difficulty}",
-    "passage": "同上文档（可以重复使用同一passage）",
-    "question": "Who is eligible for basic coverage?",
+    "passage": "To: All Staff\\nFrom: Human Resources Department\\nDate: March 15, 2024\\nSubject: New Employee Benefits Program\\n\\nWe are pleased to announce the implementation of our enhanced employee benefits program, effective April 1, 2024. All full-time employees will receive comprehensive medical, dental, and vision insurance at no additional cost. Part-time employees working more than 20 hours per week will also qualify for basic medical coverage.\\n\\nKey Benefits Include:\\n- Zero-deductible health insurance\\n- Dental coverage with orthodontic benefits\\n- Vision care with annual eye exams\\n- $50,000 life insurance policy\\n\\nTo learn more about these benefits, please attend one of our information sessions on March 22nd at 2:00 PM or March 25th at 10:00 AM in Conference Room A. You can also visit our HR portal at hr.company.com for detailed benefit summaries.\\n\\nIf you have any questions, please contact the HR department at extension 5500.\\n\\nBest regards,\\nSarah Johnson\\nHuman Resources Director",
+    "question": "Who is eligible for basic medical coverage?",
     "options": [
-      "All employees",
+      "All employees regardless of status",
       "Only full-time employees",
-      "Part-time employees working over 20 hours per week",
-      "Only managers"
+      "Part-time employees working over 20 hours weekly",
+      "Only management staff"
     ],
     "correctAnswer": 2,
-    "explanation": "文中提到'Part-time employees working more than 20 hours per week will also qualify for basic coverage'。",
+    "explanation": "邮件中明确指出'Part-time employees working more than 20 hours per week will also qualify for basic medical coverage'，兼职员工每周工作超过20小时即可获得基本医疗保险。",
+    "category": "Part 7 - 阅读理解"
+  },
+  {
+    "id": "part7_3",
+    "type": "READING_PART7",
+    "difficulty": "${difficulty}",
+    "passage": "To: All Staff\\nFrom: Human Resources Department\\nDate: March 15, 2024\\nSubject: New Employee Benefits Program\\n\\nWe are pleased to announce the implementation of our enhanced employee benefits program, effective April 1, 2024. All full-time employees will receive comprehensive medical, dental, and vision insurance at no additional cost. Part-time employees working more than 20 hours per week will also qualify for basic medical coverage.\\n\\nKey Benefits Include:\\n- Zero-deductible health insurance\\n- Dental coverage with orthodontic benefits\\n- Vision care with annual eye exams\\n- $50,000 life insurance policy\\n\\nTo learn more about these benefits, please attend one of our information sessions on March 22nd at 2:00 PM or March 25th at 10:00 AM in Conference Room A. You can also visit our HR portal at hr.company.com for detailed benefit summaries.\\n\\nIf you have any questions, please contact the HR department at extension 5500.\\n\\nBest regards,\\nSarah Johnson\\nHuman Resources Director",
+    "question": "When can employees attend an information session?",
+    "options": [
+      "March 15 at 2:00 PM",
+      "March 22 at 2:00 PM or March 25 at 10:00 AM",
+      "April 1 at any time",
+      "Only by appointment"
+    ],
+    "correctAnswer": 1,
+    "explanation": "邮件中提到'please attend one of our information sessions on March 22nd at 2:00 PM or March 25th at 10:00 AM'，提供了两个具体的时间选项。",
+    "category": "Part 7 - 阅读理解"
+  },
+  {
+    "id": "part7_4",
+    "type": "READING_PART7",
+    "difficulty": "${difficulty}",
+    "passage": "To: All Staff\\nFrom: Human Resources Department\\nDate: March 15, 2024\\nSubject: New Employee Benefits Program\\n\\nWe are pleased to announce the implementation of our enhanced employee benefits program, effective April 1, 2024. All full-time employees will receive comprehensive medical, dental, and vision insurance at no additional cost. Part-time employees working more than 20 hours per week will also qualify for basic medical coverage.\\n\\nKey Benefits Include:\\n- Zero-deductible health insurance\\n- Dental coverage with orthodontic benefits\\n- Vision care with annual eye exams\\n- $50,000 life insurance policy\\n\\nTo learn more about these benefits, please attend one of our information sessions on March 22nd at 2:00 PM or March 25th at 10:00 AM in Conference Room A. You can also visit our HR portal at hr.company.com for detailed benefit summaries.\\n\\nIf you have any questions, please contact the HR department at extension 5500.\\n\\nBest regards,\\nSarah Johnson\\nHuman Resources Director",
+    "question": "What can be inferred about the new benefits program?",
+    "options": [
+      "It will cost employees more money",
+      "It represents an improvement over the previous program",
+      "It only applies to new hires",
+      "It requires employees to change doctors"
+    ],
+    "correctAnswer": 1,
+    "explanation": "从'enhanced employee benefits program'（增强的员工福利计划）这个表述可以推断，新计划是对之前福利的改进和提升。",
     "category": "Part 7 - 阅读理解"
   }
 ]
 
-**题型分布（${count}题）：**
-- 细节题（40%）：具体信息如日期、价格、资格要求等
-- 主旨题（20%）：文章目的、主要话题
-- 推理题（30%）：隐含意思、逻辑推断
-- 词汇题（10%）：语境中的词义理解
+**题型分布要求（总共${totalQuestions}道题）：**
+1. **主旨题（1题）**：文章目的、主要话题（What is the main purpose...）
+2. **细节题（${Math.max(1, Math.floor(totalQuestions * 0.5))}题）**：具体信息如日期、时间、价格、资格条件、地点等（When/Where/Who/What...）
+3. **推理题（${Math.max(1, Math.floor(totalQuestions * 0.3))}题）**：根据文章内容推断（What can be inferred...）
+4. **词汇题（可选）**：语境中的词义理解（The word "X" is closest in meaning to...）
 
-**文档类型选择：**
-- 商务邮件（To/From/Subject/Date格式）
-- 产品广告
-- 公司备忘录（MEMO格式）
-- 招聘通知
-- 新闻文章
-- 会议议程
+**文档类型选择（随机选一种）：**
+- 📧 商务邮件（To/From/Subject/Date格式，最常见）
+- 📢 公司公告/通知（Announcement/Notice格式）
+- 📝 备忘录（MEMO格式）
+- 📰 新闻文章/公司新闻稿
+- 📄 招聘广告（Job Posting）
+- 📊 产品/服务广告
+- 📅 会议议程/日程安排
 
-**重要提示：**
-1. 返回JSON数组，每个元素是一道独立的题目
-2. 每道题必须包含passage字段（完整文档）
-3. 可以基于同一文档生成多道题目（重复使用passage）
-4. 选项不要包含A)、B)等前缀
-5. 正确答案随机分布在0、1、2、3（对应A、B、C、D）
-6. 直接返回JSON数组，不要Markdown代码块包装
+**文档长度要求：**
+- 单篇文档：150-250词
+- 包含足够的细节信息支撑所有题目
+- 格式规范，符合真实商务场景
 
-现在生成${count}道标准Part 7阅读理解题：`;
+**关键要求：**
+1. ✅ 必须返回**${totalQuestions}道题目**（JSON数组长度 = ${totalQuestions}）
+2. ✅ 所有${totalQuestions}道题的passage字段**必须完全相同**（同一篇文档）
+3. ✅ 题目必须涵盖文档的不同部分（开头、中间、结尾）
+4. ✅ 难度递增：第1题最简单（主旨题），后续题目逐渐增加难度
+5. ✅ 选项不要包含A)、B)等前缀，纯文本内容
+6. ✅ 正确答案随机分布在0、1、2、3（对应A、B、C、D）
+7. ✅ 直接返回JSON数组，不要Markdown代码块包装
+8. ❌ 不要生成单句填空题（那是Part 5）
+9. ❌ 不要生成段落填空题（那是Part 6）
+10. ⚠️ 即使请求参数count=${passageCount}，也必须生成${totalQuestions}道题！
+
+现在请生成：
+- ${passageCount}篇完整商务文档（所有题目共用同一篇）
+- **${totalQuestions}道**标准TOEIC Part 7阅读理解题（不是${passageCount}道！）`;
 };
 
 /**
