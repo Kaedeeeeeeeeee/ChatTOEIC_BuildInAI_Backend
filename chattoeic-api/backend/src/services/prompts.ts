@@ -183,70 +183,75 @@ export const buildPart7Prompt = (request: QuestionGenerationRequest): string => 
 
   const targetScore = difficultyToScore(difficulty);
 
-  // 根据题目数量确定文档结构
-  const getDocumentStructure = (questionCount: number) => {
-    if (questionCount <= 4) {
-      return "single passage (one complete business document)";
-    } else if (questionCount <= 10) {
-      return "double passage (two related business documents)";
-    } else {
-      return "triple passage (three related business documents)";
-    }
-  };
-
-  const documentStructure = getDocumentStructure(count);
-
   return `你是专业的TOEIC Part 7阅读理解出题专家。请生成${count}道${targetScore}分难度的阅读理解题。
 
-**出题要求：**
-- 文档结构：${documentStructure}
-- 题目总数：${count}题
-- 难度级别：${targetScore}分水平
+**🚨 CRITICAL: Part 7 格式要求 🚨**
 
-**EXACT JSON FORMAT：**
-{
-  "passages": [
-    {
-      "type": "email/advertisement/memo/notice",
-      "title": "文档标题",
-      "content": "完整文档内容，包含适当格式"
-    }
-  ],
-  "questions": [
-    {
-      "question": "What is the main purpose of this email?",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctAnswer": 0,
-      "explanation": "详细解释为什么这个答案正确",
-      "type": "main_idea",
-      "category": "Part 7 - 阅读理解",
-      "difficulty": "${difficulty}"
-    }
-  ]
-}
+Part 7 特征：
+- ✅ 基于一篇或多篇商务文档的阅读理解题
+- ✅ 每道题包含完整的文档内容（passage字段）
+- ✅ 测试细节理解、主旨把握、推理能力
+- ❌ 不是单句填空，需要完整的商务文档
 
-**题型分布：**
-- 细节题（40%）：日期、价格、地点等具体信息
+**EXACT JSON FORMAT（完全按此格式）：**
+[
+  {
+    "id": "part7_1",
+    "type": "READING_PART7",
+    "difficulty": "${difficulty}",
+    "passage": "To: All Staff\\nFrom: Human Resources\\nDate: March 15, 2024\\nSubject: New Health Benefits\\n\\nWe are pleased to announce enhanced health insurance coverage starting April 1st. All full-time employees will receive comprehensive medical, dental, and vision benefits at no additional cost. Part-time employees working more than 20 hours per week will also qualify for basic coverage.\\n\\nFor more details, please attend the information session on March 22nd at 2 PM in Conference Room A, or visit our HR portal.",
+    "question": "What is the main purpose of this memo?",
+    "options": [
+      "To announce new health benefits",
+      "To schedule a meeting",
+      "To hire new employees",
+      "To reduce insurance costs"
+    ],
+    "correctAnswer": 0,
+    "explanation": "邮件开头明确说明'We are pleased to announce enhanced health insurance coverage'，主要目的是宣布新的健康福利。",
+    "category": "Part 7 - 阅读理解"
+  },
+  {
+    "id": "part7_2",
+    "type": "READING_PART7",
+    "difficulty": "${difficulty}",
+    "passage": "同上文档（可以重复使用同一passage）",
+    "question": "Who is eligible for basic coverage?",
+    "options": [
+      "All employees",
+      "Only full-time employees",
+      "Part-time employees working over 20 hours per week",
+      "Only managers"
+    ],
+    "correctAnswer": 2,
+    "explanation": "文中提到'Part-time employees working more than 20 hours per week will also qualify for basic coverage'。",
+    "category": "Part 7 - 阅读理解"
+  }
+]
+
+**题型分布（${count}题）：**
+- 细节题（40%）：具体信息如日期、价格、资格要求等
 - 主旨题（20%）：文章目的、主要话题
-- 推理题（30%）：隐含意思、逻辑结论
-- 词汇题（10%）：语境中的词汇理解
+- 推理题（30%）：隐含意思、逻辑推断
+- 词汇题（10%）：语境中的词义理解
 
 **文档类型选择：**
 - 商务邮件（To/From/Subject/Date格式）
-- 广告（产品/服务推广）
-- 备忘录（内部沟通）
-- 通知/公告
+- 产品广告
+- 公司备忘录（MEMO格式）
+- 招聘通知
 - 新闻文章
-- 日程表/议程
+- 会议议程
 
 **重要提示：**
-1. 返回单个JSON对象（不是数组）
-2. passages数组包含完整文档
-3. questions数组包含所有题目
-4. 正确答案随机分布在A、B、C、D
-5. 直接返回JSON，不要Markdown包装
+1. 返回JSON数组，每个元素是一道独立的题目
+2. 每道题必须包含passage字段（完整文档）
+3. 可以基于同一文档生成多道题目（重复使用passage）
+4. 选项不要包含A)、B)等前缀
+5. 正确答案随机分布在0、1、2、3（对应A、B、C、D）
+6. 直接返回JSON数组，不要Markdown代码块包装
 
-现在生成Part 7阅读理解题组：`;
+现在生成${count}道标准Part 7阅读理解题：`;
 };
 
 /**
