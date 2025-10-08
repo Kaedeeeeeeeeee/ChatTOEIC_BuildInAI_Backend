@@ -773,6 +773,119 @@ router.get('/:id',
   }
 );
 
+// 保存题目时间数据 (用于用户行为分析)
+router.post('/sessions/:sessionId/times',
+  authenticateToken,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const { questionTimes } = req.body;
+      const userId = req.user!.userId;
+
+      console.log(`📊 保存时间数据: session=${sessionId}, 题目数=${questionTimes?.length}`);
+
+      // 验证会话是否存在且属于该用户
+      const session = await prisma.practiceRecord.findFirst({
+        where: { sessionId, userId }
+      });
+
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          error: '练习会话不存在'
+        });
+      }
+
+      // 保存时间数据到数据库 (可以后续用于分析)
+      // 目前简单存储到session的metadata中
+      await prisma.practiceRecord.update({
+        where: { id: session.id },
+        data: {
+          // 使用questions字段存储，添加时间信息
+          questions: session.questions ? (session.questions as any[]).map((q: any, index: number) => {
+            const timeData = questionTimes.find((qt: any) => qt.questionIndex === index);
+            return {
+              ...q,
+              timeSpent: timeData?.timeSpent || q.timeSpent || 0,
+              timeLimit: timeData?.timeLimit || 0,
+              isOvertime: timeData?.isOvertime || false
+            };
+          }) : []
+        }
+      });
+
+      console.log(`✅ 时间数据已保存到session ${sessionId}`);
+
+      res.json({
+        success: true,
+        message: '时间数据保存成功'
+      });
+    } catch (error) {
+      console.error('Save time data error:', error);
+      res.status(500).json({
+        success: false,
+        error: '保存时间数据失败'
+      });
+    }
+  }
+);
+
+// 保存音频播放记录 (用于听力部分分析)
+router.post('/sessions/:sessionId/audio',
+  authenticateToken,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const { audioPlaybacks } = req.body;
+      const userId = req.user!.userId;
+
+      console.log(`🎧 保存音频数据: session=${sessionId}, 播放次数=${audioPlaybacks?.length}`);
+
+      // 验证会话是否存在且属于该用户
+      const session = await prisma.practiceRecord.findFirst({
+        where: { sessionId, userId }
+      });
+
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          error: '练习会话不存在'
+        });
+      }
+
+      // 保存音频播放数据
+      // 可以后续用于分析用户听力习惯
+      await prisma.practiceRecord.update({
+        where: { id: session.id },
+        data: {
+          // 使用questions字段存储，添加音频播放信息
+          questions: session.questions ? (session.questions as any[]).map((q: any, index: number) => {
+            const audioData = audioPlaybacks?.find((ap: any) => ap.questionIndex === index);
+            return {
+              ...q,
+              audioPlayCount: audioData?.playCount || 0,
+              audioPlayTimes: audioData?.playTimes || []
+            };
+          }) : []
+        }
+      });
+
+      console.log(`✅ 音频数据已保存到session ${sessionId}`);
+
+      res.json({
+        success: true,
+        message: '音频数据保存成功'
+      });
+    } catch (error) {
+      console.error('Save audio data error:', error);
+      res.status(500).json({
+        success: false,
+        error: '保存音频数据失败'
+      });
+    }
+  }
+);
+
 // 获取学习统计
 router.get('/stats/overview',
   authenticateToken,
